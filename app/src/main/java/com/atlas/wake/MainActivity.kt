@@ -83,8 +83,7 @@ class MainActivity : ComponentActivity() {
         ) {
             startWakeWord()
         } else {
-            status.text =
-                "ATLAS Wake\n\nMicrophone permission denied."
+            status.text = "ATLAS Wake\n\nMicrophone permission denied."
         }
     }
 
