@@ -1,17 +1,17 @@
 package com.atlas.wake
 
 import android.Manifest
-import android.app.Activity
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.widget.TextView
+import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
 import com.rementia.openwakeword.lib.DetectionMode
 import com.rementia.openwakeword.lib.WakeWordEngine
 import com.rementia.openwakeword.lib.WakeWordModel
 import kotlinx.coroutines.launch
 
-class MainActivity : Activity() {
+class MainActivity : ComponentActivity() {
 
     private lateinit var status: TextView
     private var engine: WakeWordEngine? = null
@@ -38,7 +38,7 @@ class MainActivity : Activity() {
     }
 
     private fun startWakeWord() {
-        status.text = "ATLAS Wake\n\nListening for:\n\"Hey Jarvis\""
+        status.text = "ATLAS Wake\n\nListening for:\nHey Jarvis"
 
         val models = listOf(
             WakeWordModel(
@@ -58,13 +58,10 @@ class MainActivity : Activity() {
 
         lifecycleScope.launch {
             engine?.detections?.collect { detection ->
-                runOnUiThread {
-                    status.text =
-                        "ATLAS WAKE!\n\n" +
-                        "Wake word detected!\n\n" +
-                        "Model: ${detection.model.name}\n" +
-                        "Score: ${detection.score}"
-                }
+                status.text =
+                    "ATLAS WAKE!\n\nWake word detected!\n\n" +
+                    "Model: ${detection.model.name}\n" +
+                    "Score: ${detection.score}"
             }
         }
     }
@@ -87,7 +84,7 @@ class MainActivity : Activity() {
             startWakeWord()
         } else {
             status.text =
-                "ATLAS Wake\n\nMicrophone permission is required."
+                "ATLAS Wake\n\nMicrophone permission denied."
         }
     }
 
