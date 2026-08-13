@@ -6,9 +6,9 @@ import android.os.Bundle
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
-import com.rementia.openwakeword.lib.DetectionMode
-import com.rementia.openwakeword.lib.WakeWordEngine
-import com.rementia.openwakeword.lib.WakeWordModel
+import com.rementia.openwakeword.WakeWordEngine
+import com.rementia.openwakeword.WakeWordModel
+import com.rementia.openwakeword.DetectionMode
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -42,9 +42,9 @@ class MainActivity : ComponentActivity() {
 
         val models = listOf(
             WakeWordModel(
-                name = "Hey Jarvis",
-                modelPath = "hey_jarvis_v0.1.onnx",
-                threshold = 0.5f
+                "Hey Jarvis",
+                "hey_jarvis_v0.1.onnx",
+                0.5f
             )
         )
 
@@ -68,7 +68,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onRequestPermissionsResult(
         requestCode: Int,
-        permissions: Array<out String>,
+        permissions: Array<String>,
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(
