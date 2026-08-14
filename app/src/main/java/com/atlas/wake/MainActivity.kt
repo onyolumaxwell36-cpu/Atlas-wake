@@ -5,6 +5,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
@@ -22,14 +24,26 @@ import java.util.Locale
 class MainActivity : ComponentActivity() {
 
     private lateinit var status: TextView
+
     private var wakeWordEngine: WakeWordEngine? = null
     private var speechRecognizer: SpeechRecognizer? = null
+
+    private val handler = Handler(Looper.getMainLooper())
+
+    private var isListeningForCommand = false
+    private var isRestartingWakeWord = false
+
+    companion object {
+        private const val MICROPHONE_REQUEST = 100
+        private const val WAKE_RESTART_DELAY = 700L
+        private const val COMMAND_TIMEOUT = 7000L
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         status = TextView(this)
-        status.text = "ATLAS Wake\n\nRequesting microphone permission..."
+        status.text = "ATLAS Wake\n\nStarting..."
         status.textSize = 20f
         status.setPadding(40, 100, 40, 40)
         setContentView(status)
@@ -40,7 +54,7 @@ class MainActivity : ComponentActivity() {
         ) {
             requestPermissions(
                 arrayOf(Manifest.permission.RECORD_AUDIO),
-                100
+                MICROPHONE_REQUEST
             )
         } else {
             startWakeWordDetection()
@@ -49,8 +63,12 @@ class MainActivity : ComponentActivity() {
 
     private fun startWakeWordDetection() {
 
+        if (isListeningForCommand) return
+
         status.text =
-            "ATLAS Wake\n\nListening for:\nHEY JARVIS"
+            "ATLAS Wake\n\n" +
+            "Listening for:\n" +
+            "HEY JARVIS"
 
         val models = listOf(
             WakeWordModel(
@@ -60,40 +78,62 @@ class MainActivity : ComponentActivity() {
             )
         )
 
-        wakeWordEngine = WakeWordEngine(
-            context = this,
-            models = models,
-            detectionMode = DetectionMode.SINGLE_BEST,
-            detectionCooldownMs = 2000L
-        )
-
-        lifecycleScope.launch {
-            wakeWordEngine?.detections?.collect {
-
-                status.text =
-                    "ATLAS WAKE!\n\n" +
-                    "HEY JARVIS DETECTED!\n\n" +
-                    "Listening for command..."
-
-                listenForCommand()
-            }
-        }
-
         try {
+
+            wakeWordEngine?.release()
+
+            wakeWordEngine = WakeWordEngine(
+                context = this,
+                models = models,
+                detectionMode = DetectionMode.SINGLE_BEST,
+                detectionCooldownMs = 2000L
+            )
+
+            lifecycleScope.launch {
+
+                wakeWordEngine?.detections?.collect { detection ->
+
+                    if (isListeningForCommand) return@collect
+
+                    isListeningForCommand = true
+
+                    status.text =
+                        "ATLAS WAKE!\n\n" +
+                        "HEY JARVIS DETECTED!\n\n" +
+                        "I'm listening..."
+
+                    stopWakeWordEngine()
+
+                    listenForCommand()
+                }
+            }
+
             wakeWordEngine?.start()
+
         } catch (e: Exception) {
+
             status.text =
                 "ATLAS Wake\n\n" +
-                "Could not start wake-word detection.\n\n" +
-                e.message
+                "Wake-word error:\n\n" +
+                "${e.message}"
+
+            scheduleWakeWordRestart()
+        }
+    }
+
+    private fun stopWakeWordEngine() {
+        try {
+            wakeWordEngine?.release()
+        } catch (_: Exception) {
         }
     }
 
     private fun listenForCommand() {
 
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+
             status.text =
-                "ATLAS Wake\n\n" +
+                "ATLAS WAKE\n\n" +
                 "Speech recognition is not available."
 
             restartWakeWord()
@@ -102,38 +142,46 @@ class MainActivity : ComponentActivity() {
 
         speechRecognizer?.destroy()
 
-        speechRecognizer =
-            SpeechRecognizer.createSpeechRecognizer(this)
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
 
         speechRecognizer?.setRecognitionListener(
             object : RecognitionListener {
 
                 override fun onReadyForSpeech(params: Bundle?) {
+
                     status.text =
                         "ATLAS WAKE\n\n" +
-                        "I'm listening..."
+                        "I'm listening...\n\n" +
+                        "Say your command."
                 }
 
                 override fun onBeginningOfSpeech() {
+
                     status.text =
                         "ATLAS WAKE\n\n" +
                         "Hearing you..."
                 }
 
-                override fun onRmsChanged(rmsdB: Float) {}
+                override fun onRmsChanged(rmsdB: Float) {
+                }
 
-                override fun onBufferReceived(buffer: ByteArray?) {}
+                override fun onBufferReceived(buffer: ByteArray?) {
+                }
 
                 override fun onEndOfSpeech() {
+
                     status.text =
                         "ATLAS WAKE\n\n" +
                         "Processing..."
                 }
 
                 override fun onError(error: Int) {
+
                     status.text =
                         "ATLAS WAKE\n\n" +
-                        "I didn't understand that."
+                        "I didn't catch that.\n\n" +
+                        "Error: $error\n\n" +
+                        "Returning to wake mode..."
 
                     restartWakeWord()
                 }
@@ -146,22 +194,35 @@ class MainActivity : ComponentActivity() {
                         )
 
                     val command =
-                        matches?.firstOrNull()
+                        matches
+                            ?.firstOrNull()
                             ?.lowercase(Locale.getDefault())
                             ?.trim()
                             ?: ""
+
+                    if (command.isBlank()) {
+
+                        status.text =
+                            "ATLAS WAKE\n\n" +
+                            "I didn't hear a command."
+
+                        restartWakeWord()
+                        return
+                    }
 
                     handleCommand(command)
                 }
 
                 override fun onPartialResults(
                     partialResults: Bundle?
-                ) {}
+                ) {
+                }
 
                 override fun onEvent(
                     eventType: Int,
                     params: Bundle?
-                ) {}
+                ) {
+                }
             }
         )
 
@@ -182,72 +243,96 @@ class MainActivity : ComponentActivity() {
 
         intent.putExtra(
             RecognizerIntent.EXTRA_MAX_RESULTS,
-            1
+            5
         )
 
-        speechRecognizer?.startListening(intent)
+        intent.putExtra(
+            RecognizerIntent.EXTRA_PARTIAL_RESULTS,
+            false
+        )
+
+        try {
+
+            speechRecognizer?.startListening(intent)
+
+            handler.postDelayed(
+                {
+                    if (isListeningForCommand) {
+                        speechRecognizer?.stopListening()
+                    }
+                },
+                COMMAND_TIMEOUT
+            )
+
+        } catch (e: Exception) {
+
+            status.text =
+                "ATLAS WAKE\n\n" +
+                "Could not start speech recognition.\n\n" +
+                "${e.message}"
+
+            restartWakeWord()
+        }
     }
 
     private fun handleCommand(command: String) {
 
+        status.text =
+            "ATLAS WAKE\n\n" +
+            "I heard:\n\n" +
+            "\"$command\"\n\n" +
+            "Processing..."
+
         when {
 
-            command.contains("open whatsapp") -> {
+            command.contains("open whatsapp") ||
+            command.contains("launch whatsapp") ||
+            command.contains("start whatsapp") ||
+            command.contains("go to whatsapp") ||
+            command.contains("open my whatsapp") -> {
 
-                status.text =
-                    "ATLAS WAKE\n\n" +
-                    "Opening WhatsApp..."
-
-                val whatsapp =
-                    packageManager.getLaunchIntentForPackage(
-                        "com.whatsapp"
-                    )
-
-                if (whatsapp != null) {
-                    startActivity(whatsapp)
-                } else {
-                    status.text =
-                        "ATLAS WAKE\n\n" +
-                        "WhatsApp is not installed."
-                }
-
-                restartWakeWord()
+                openWhatsApp()
             }
 
             command.contains("what is the time") ||
             command.contains("what's the time") ||
             command.contains("tell me the time") ||
+            command.contains("current time") ||
             command == "time" -> {
 
-                val currentTime =
-                    SimpleDateFormat(
-                        "h:mm a",
-                        Locale.getDefault()
-                    ).format(Date())
-
-                status.text =
-                    "ATLAS WAKE\n\n" +
-                    "The time is $currentTime"
-
-                restartWakeWord()
+                tellTime()
             }
 
-            command.startsWith("search the web for") -> {
+            command.startsWith("search for ") -> {
+
+                val topic =
+                    command.removePrefix("search for ").trim()
+
+                searchWeb(topic)
+            }
+
+            command.startsWith("search ") -> {
+
+                val topic =
+                    command.removePrefix("search ").trim()
+
+                searchWeb(topic)
+            }
+
+            command.contains("search the web for ") -> {
 
                 val topic =
                     command.substringAfter(
-                        "search the web for"
+                        "search the web for "
                     ).trim()
 
                 searchWeb(topic)
             }
 
-            command.startsWith("search for") -> {
+            command.contains("google ") -> {
 
                 val topic =
-                    command.substringAfter(
-                        "search for"
-                    ).trim()
+                    command.substringAfter("google ").trim()
 
                 searchWeb(topic)
             }
@@ -256,12 +341,61 @@ class MainActivity : ComponentActivity() {
 
                 status.text =
                     "ATLAS WAKE\n\n" +
-                    "I heard:\n\n$command\n\n" +
+                    "I heard:\n\n" +
+                    "\"$command\"\n\n" +
                     "I don't know that command yet."
 
                 restartWakeWord()
             }
         }
+    }
+
+    private fun openWhatsApp() {
+
+        status.text =
+            "ATLAS WAKE\n\n" +
+            "Opening WhatsApp..."
+
+        val whatsapp =
+            packageManager.getLaunchIntentForPackage(
+                "com.whatsapp"
+            )
+
+        if (whatsapp != null) {
+
+            try {
+                startActivity(whatsapp)
+            } catch (_: Exception) {
+
+                status.text =
+                    "ATLAS WAKE\n\n" +
+                    "I couldn't open WhatsApp."
+            }
+
+        } else {
+
+            status.text =
+                "ATLAS WAKE\n\n" +
+                "WhatsApp is not installed."
+        }
+
+        restartWakeWord()
+    }
+
+    private fun tellTime() {
+
+        val currentTime =
+            SimpleDateFormat(
+                "h:mm a",
+                Locale.getDefault()
+            ).format(Date())
+
+        status.text =
+            "ATLAS WAKE\n\n" +
+            "The time is:\n\n" +
+            currentTime
+
+        restartWakeWord()
     }
 
     private fun searchWeb(topic: String) {
@@ -270,7 +404,7 @@ class MainActivity : ComponentActivity() {
 
             status.text =
                 "ATLAS WAKE\n\n" +
-                "Tell me what to search for."
+                "Tell me what you want me to search for."
 
             restartWakeWord()
             return
@@ -278,43 +412,74 @@ class MainActivity : ComponentActivity() {
 
         status.text =
             "ATLAS WAKE\n\n" +
-            "Searching for:\n$topic"
+            "Searching the web for:\n\n" +
+            topic
 
-        val searchUrl =
-            "https://www.google.com/search?q=" +
-                    Uri.encode(topic)
+        try {
 
-        startActivity(
-            Intent(
-                Intent.ACTION_VIEW,
-                Uri.parse(searchUrl)
+            val searchUrl =
+                "https://www.google.com/search?q=" +
+                        Uri.encode(topic)
+
+            startActivity(
+                Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse(searchUrl)
+                )
             )
-        )
+
+        } catch (e: Exception) {
+
+            status.text =
+                "ATLAS WAKE\n\n" +
+                "Couldn't open the web search."
+        }
 
         restartWakeWord()
     }
 
     private fun restartWakeWord() {
 
-        speechRecognizer?.stopListening()
-        speechRecognizer?.destroy()
+        isListeningForCommand = false
+
+        try {
+            speechRecognizer?.cancel()
+            speechRecognizer?.destroy()
+        } catch (_: Exception) {
+        }
+
         speechRecognizer = null
 
-        status.postDelayed({
+        handler.postDelayed(
+            {
 
-            status.text =
-                "ATLAS Wake\n\n" +
-                "Listening for:\nHEY JARVIS"
+                if (isFinishing || isDestroyed) return@postDelayed
 
-            try {
-                wakeWordEngine?.start()
-            } catch (e: Exception) {
-                status.text =
-                    "ATLAS Wake\n\n" +
-                    "Could not restart wake-word detection."
-            }
+                startWakeWordDetection()
 
-        }, 1000)
+            },
+            WAKE_RESTART_DELAY
+        )
+    }
+
+    private fun scheduleWakeWordRestart() {
+
+        if (isRestartingWakeWord) return
+
+        isRestartingWakeWord = true
+
+        handler.postDelayed(
+            {
+
+                isRestartingWakeWord = false
+
+                if (!isFinishing && !isDestroyed) {
+                    startWakeWordDetection()
+                }
+
+            },
+            1500L
+        )
     }
 
     override fun onRequestPermissionsResult(
@@ -330,13 +495,16 @@ class MainActivity : ComponentActivity() {
         )
 
         if (
-            requestCode == 100 &&
+            requestCode == MICROPHONE_REQUEST &&
             grantResults.isNotEmpty() &&
             grantResults[0] ==
             PackageManager.PERMISSION_GRANTED
         ) {
+
             startWakeWordDetection()
+
         } else {
+
             status.text =
                 "ATLAS Wake\n\n" +
                 "Microphone permission denied."
@@ -345,9 +513,21 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
 
-        speechRecognizer?.destroy()
+        handler.removeCallbacksAndMessages(null)
 
-        wakeWordEngine?.release()
+        try {
+            speechRecognizer?.cancel()
+            speechRecognizer?.destroy()
+        } catch (_: Exception) {
+        }
+
+        speechRecognizer = null
+
+        try {
+            wakeWordEngine?.release()
+        } catch (_: Exception) {
+        }
+
         wakeWordEngine = null
 
         super.onDestroy()
