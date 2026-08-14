@@ -11,6 +11,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.view.Gravity
 import android.view.View
 import android.graphics.Canvas
@@ -24,6 +25,7 @@ import androidx.lifecycle.lifecycleScope
 import com.rementia.openwakeword.lib.WakeWordEngine
 import com.rementia.openwakeword.lib.model.DetectionMode
 import com.rementia.openwakeword.lib.model.WakeWordModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -39,96 +41,49 @@ class MainActivity : ComponentActivity() {
     private var speechRecognizer: SpeechRecognizer? = null
     private var textToSpeech: TextToSpeech? = null
 
+    private var detectionJob: Job? = null
+
     private val handler = Handler(Looper.getMainLooper())
 
     private var ttsReady = false
     private var speaking = false
     private var listeningForCommand = false
 
+    private var commandRetryCount = 0
+
+    private var pendingAction: (() -> Unit)? = null
+
     companion object {
         private const val MICROPHONE_REQUEST = 100
+
+        // Slightly lower than before to make "Hey Jarvis"
+        // easier to detect in normal surroundings.
+        private const val WAKE_THRESHOLD = 0.40f
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         createInterface()
-
-        textToSpeech = TextToSpeech(
-            this,
-            object : TextToSpeech.OnInitListener {
-                override fun onInit(result: Int) {
-
-                    if (result == TextToSpeech.SUCCESS) {
-
-                        val languageResult =
-                            textToSpeech?.setLanguage(
-                                Locale.getDefault()
-                            )
-
-                        ttsReady =
-                            languageResult != TextToSpeech.LANG_MISSING_DATA &&
-                            languageResult != TextToSpeech.LANG_NOT_SUPPORTED
-
-                        textToSpeech?.setSpeechRate(0.95f)
-                        textToSpeech?.setPitch(0.95f)
-
-                        textToSpeech?.setOnUtteranceProgressListener(
-                            object : android.speech.tts.UtteranceProgressListener() {
-
-                                override fun onStart(
-                                    utteranceId: String?
-                                ) {
-                                    runOnUiThread {
-                                        speaking = true
-                                        orb.setMode(
-                                            AtlasOrbView.MODE_SPEAKING
-                                        )
-                                    }
-                                }
-
-                                override fun onDone(
-                                    utteranceId: String?
-                                ) {
-                                    runOnUiThread {
-                                        speaking = false
-                                        restartWakeWord()
-                                    }
-                                }
-
-                                override fun onError(
-                                    utteranceId: String?
-                                ) {
-                                    runOnUiThread {
-                                        speaking = false
-                                        restartWakeWord()
-                                    }
-                                }
-                            }
-                        )
-                    }
-                }
-            }
-        )
+        initializeTextToSpeech()
 
         if (
             checkSelfPermission(
                 Manifest.permission.RECORD_AUDIO
             ) != PackageManager.PERMISSION_GRANTED
         ) {
-
             requestPermissions(
-                arrayOf(
-                    Manifest.permission.RECORD_AUDIO
-                ),
+                arrayOf(Manifest.permission.RECORD_AUDIO),
                 MICROPHONE_REQUEST
             )
-
         } else {
-
             startWakeWordDetection()
         }
     }
+
+    // ------------------------------------------------------------
+    // USER INTERFACE
+    // ------------------------------------------------------------
 
     private fun createInterface() {
 
@@ -136,6 +91,7 @@ class MainActivity : ComponentActivity() {
 
         root.orientation = LinearLayout.VERTICAL
         root.gravity = Gravity.CENTER
+
         root.setPadding(
             30,
             50,
@@ -155,11 +111,10 @@ class MainActivity : ComponentActivity() {
 
         status = TextView(this)
 
-        status.text =
-            "ATLAS\n\nStarting..."
-
+        status.text = "ATLAS\n\nStarting..."
         status.textSize = 20f
         status.gravity = Gravity.CENTER
+
         status.setPadding(
             20,
             30,
@@ -182,14 +137,170 @@ class MainActivity : ComponentActivity() {
         message: String,
         mode: Int = AtlasOrbView.MODE_IDLE
     ) {
-
-        status.text = message
-        orb.setMode(mode)
+        runOnUiThread {
+            status.text = message
+            orb.setMode(mode)
+        }
     }
+
+    // ------------------------------------------------------------
+    // TEXT TO SPEECH
+    // ------------------------------------------------------------
+
+    private fun initializeTextToSpeech() {
+
+        textToSpeech = TextToSpeech(
+            this,
+            object : TextToSpeech.OnInitListener {
+
+                override fun onInit(result: Int) {
+
+                    if (result != TextToSpeech.SUCCESS) {
+                        ttsReady = false
+                        return
+                    }
+
+                    val languageResult =
+                        textToSpeech?.setLanguage(
+                            Locale.getDefault()
+                        )
+
+                    ttsReady =
+                        languageResult != TextToSpeech.LANG_MISSING_DATA &&
+                        languageResult != TextToSpeech.LANG_NOT_SUPPORTED
+
+                    textToSpeech?.setSpeechRate(0.95f)
+                    textToSpeech?.setPitch(0.95f)
+
+                    textToSpeech?.setOnUtteranceProgressListener(
+                        object : UtteranceProgressListener() {
+
+                            override fun onStart(
+                                utteranceId: String?
+                            ) {
+                                runOnUiThread {
+                                    speaking = true
+
+                                    orb.setMode(
+                                        AtlasOrbView.MODE_SPEAKING
+                                    )
+                                }
+                            }
+
+                            override fun onDone(
+                                utteranceId: String?
+                            ) {
+                                runOnUiThread {
+
+                                    speaking = false
+
+                                    // IMPORTANT:
+                                    // Execute actions that were waiting
+                                    // for speech to finish.
+                                    val action = pendingAction
+                                    pendingAction = null
+
+                                    try {
+                                        action?.invoke()
+                                    } catch (_: Exception) {
+                                    }
+
+                                    if (action == null) {
+                                        restartWakeWord()
+                                    }
+                                }
+                            }
+
+                            override fun onError(
+                                utteranceId: String?
+                            ) {
+                                runOnUiThread {
+
+                                    speaking = false
+
+                                    val action = pendingAction
+                                    pendingAction = null
+
+                                    try {
+                                        action?.invoke()
+                                    } catch (_: Exception) {
+                                    }
+
+                                    if (action == null) {
+                                        restartWakeWord()
+                                    }
+                                }
+                            }
+                        }
+                    )
+                }
+            }
+        )
+    }
+
+    private fun speak(
+        text: String,
+        afterSpeech: (() -> Unit)? = null
+    ) {
+
+        pendingAction = afterSpeech
+
+        if (!ttsReady) {
+
+            updateStatus(
+                "ATLAS\n\n$text"
+            )
+
+            val action = pendingAction
+            pendingAction = null
+
+            try {
+                action?.invoke()
+            } catch (_: Exception) {
+            }
+
+            restartWakeWord()
+            return
+        }
+
+        speaking = true
+
+        try {
+            speechRecognizer?.cancel()
+            speechRecognizer?.destroy()
+        } catch (_: Exception) {
+        }
+
+        speechRecognizer = null
+
+        updateStatus(
+            "ATLAS\n\n$text",
+            AtlasOrbView.MODE_SPEAKING
+        )
+
+        val utteranceId =
+            "ATLAS_" + System.currentTimeMillis()
+
+        textToSpeech?.speak(
+            text,
+            TextToSpeech.QUEUE_FLUSH,
+            null,
+            utteranceId
+        )
+    }
+
+    // ------------------------------------------------------------
+    // WAKE WORD
+    // ------------------------------------------------------------
 
     private fun startWakeWordDetection() {
 
-        if (speaking || listeningForCommand) {
+        if (
+            speaking ||
+            listeningForCommand ||
+            isFinishing ||
+            isDestroyed
+        ) {
             return
         }
 
@@ -198,47 +309,70 @@ class MainActivity : ComponentActivity() {
             AtlasOrbView.MODE_LISTENING
         )
 
-        val models = listOf(
-            WakeWordModel(
-                name = "Hey Jarvis",
-                modelPath = "hey_jarvis_v0.1.onnx",
-                threshold = 0.5f
+        val models =
+            listOf(
+                WakeWordModel(
+                    name = "Hey Jarvis",
+                    modelPath = "hey_jarvis_v0.1.onnx",
+                    threshold = WAKE_THRESHOLD
+                )
             )
-        )
 
         try {
 
+            detectionJob?.cancel()
+            detectionJob = null
+
             wakeWordEngine?.release()
+            wakeWordEngine = null
 
-            wakeWordEngine = WakeWordEngine(
-                context = this,
-                models = models,
-                detectionMode = DetectionMode.SINGLE_BEST,
-                detectionCooldownMs = 2000L
-            )
+            wakeWordEngine =
+                WakeWordEngine(
+                    context = this,
+                    models = models,
+                    detectionMode =
+                        DetectionMode.SINGLE_BEST,
+                    detectionCooldownMs = 1000L
+                )
 
-            lifecycleScope.launch {
+            detectionJob =
+                lifecycleScope.launch {
 
-                wakeWordEngine?.detections?.collect {
+                    wakeWordEngine?.detections?.collect {
 
-                    if (speaking || listeningForCommand) {
-                        return@collect
+                        if (
+                            speaking ||
+                            listeningForCommand
+                        ) {
+                            return@collect
+                        }
+
+                        listeningForCommand = true
+                        commandRetryCount = 0
+
+                        stopWakeWord()
+
+                        updateStatus(
+                            "ATLAS\n\n" +
+                            "HEY JARVIS DETECTED!\n\n" +
+                            "I'm listening...",
+                            AtlasOrbView.MODE_LISTENING
+                        )
+
+                        handler.postDelayed(
+                            {
+                                if (
+                                    !isFinishing &&
+                                    !isDestroyed &&
+                                    listeningForCommand
+                                ) {
+                                    listenForCommand()
+                                }
+                            },
+                            250L
+                        )
                     }
-
-                    listeningForCommand = true
-
-                    stopWakeWord()
-
-                    updateStatus(
-                        "ATLAS\n\n" +
-                        "HEY JARVIS DETECTED!\n\n" +
-                        "I'm listening...",
-                        AtlasOrbView.MODE_LISTENING
-                    )
-
-                    listenForCommand()
                 }
-            }
 
             wakeWordEngine?.start()
 
@@ -246,22 +380,30 @@ class MainActivity : ComponentActivity() {
 
             updateStatus(
                 "ATLAS\n\n" +
-                "Wake-word error:\n\n" +
-                e.message
+                "Wake-word error.\n\n" +
+                "${e.message}"
             )
 
             handler.postDelayed(
                 {
-                    if (!speaking) {
+                    if (
+                        !speaking &&
+                        !listeningForCommand &&
+                        !isFinishing &&
+                        !isDestroyed
+                    ) {
                         startWakeWordDetection()
                     }
                 },
-                1500
+                1500L
             )
         }
     }
 
     private fun stopWakeWord() {
+
+        detectionJob?.cancel()
+        detectionJob = null
 
         try {
             wakeWordEngine?.release()
@@ -271,13 +413,23 @@ class MainActivity : ComponentActivity() {
         wakeWordEngine = null
     }
 
+    // ------------------------------------------------------------
+    // SPEECH RECOGNITION
+    // ------------------------------------------------------------
+
     private fun listenForCommand() {
+
+        if (!listeningForCommand) {
+            return
+        }
 
         if (
             !SpeechRecognizer.isRecognitionAvailable(
                 this
             )
         ) {
+
+            listeningForCommand = false
 
             speak(
                 "Speech recognition is not available on this phone."
@@ -286,10 +438,16 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        speechRecognizer?.destroy()
+        try {
+            speechRecognizer?.cancel()
+            speechRecognizer?.destroy()
+        } catch (_: Exception) {
+        }
 
         speechRecognizer =
-            SpeechRecognizer.createSpeechRecognizer(this)
+            SpeechRecognizer.createSpeechRecognizer(
+                this
+            )
 
         speechRecognizer?.setRecognitionListener(
             object : RecognitionListener {
@@ -297,10 +455,8 @@ class MainActivity : ComponentActivity() {
                 override fun onReadyForSpeech(
                     params: Bundle?
                 ) {
-
                     updateStatus(
-                        "ATLAS\n\n" +
-                        "I'm listening...",
+                        "ATLAS\n\nI'm listening...",
                         AtlasOrbView.MODE_LISTENING
                     )
                 }
@@ -308,8 +464,7 @@ class MainActivity : ComponentActivity() {
                 override fun onBeginningOfSpeech() {
 
                     updateStatus(
-                        "ATLAS\n\n" +
-                        "I'm hearing you...",
+                        "ATLAS\n\nI'm hearing you...",
                         AtlasOrbView.MODE_LISTENING
                     )
                 }
@@ -317,7 +472,6 @@ class MainActivity : ComponentActivity() {
                 override fun onRmsChanged(
                     rmsdB: Float
                 ) {
-
                     orb.setAudioLevel(rmsdB)
                 }
 
@@ -338,15 +492,48 @@ class MainActivity : ComponentActivity() {
                     error: Int
                 ) {
 
-                    listeningForCommand = false
+                    try {
+                        speechRecognizer?.destroy()
+                    } catch (_: Exception) {
+                    }
 
-                    updateStatus(
-                        "ATLAS\n\n" +
-                        "I didn't catch that.\n\n" +
-                        "Try again."
-                    )
+                    speechRecognizer = null
 
-                    restartWakeWord()
+                    if (
+                        commandRetryCount < 2 &&
+                        listeningForCommand
+                    ) {
+
+                        commandRetryCount++
+
+                        updateStatus(
+                            "ATLAS\n\n" +
+                            "I didn't catch that.\n\n" +
+                            "Listening again...",
+                            AtlasOrbView.MODE_LISTENING
+                        )
+
+                        handler.postDelayed(
+                            {
+                                if (
+                                    listeningForCommand &&
+                                    !isFinishing &&
+                                    !isDestroyed
+                                ) {
+                                    listenForCommand()
+                                }
+                            },
+                            500L
+                        )
+
+                    } else {
+
+                        listeningForCommand = false
+
+                        speak(
+                            "I didn't catch that. Please try again."
+                        )
+                    }
                 }
 
                 override fun onResults(
@@ -366,6 +553,13 @@ class MainActivity : ComponentActivity() {
                             )
                             ?.trim()
                             ?: ""
+
+                    try {
+                        speechRecognizer?.destroy()
+                    } catch (_: Exception) {
+                    }
+
+                    speechRecognizer = null
 
                     listeningForCommand = false
 
@@ -414,21 +608,46 @@ class MainActivity : ComponentActivity() {
             5
         )
 
+        intent.putExtra(
+            RecognizerIntent.EXTRA_PARTIAL_RESULTS,
+            false
+        )
+
         try {
 
             speechRecognizer?.startListening(
                 intent
             )
 
-        } catch (e: Exception) {
+        } catch (_: Exception) {
 
-            listeningForCommand = false
+            if (commandRetryCount < 2) {
 
-            speak(
-                "I could not start listening."
-            )
+                commandRetryCount++
+
+                handler.postDelayed(
+                    {
+                        if (listeningForCommand) {
+                            listenForCommand()
+                        }
+                    },
+                    500L
+                )
+
+            } else {
+
+                listeningForCommand = false
+
+                speak(
+                    "I could not start listening."
+                )
+            }
         }
     }
+
+    // ------------------------------------------------------------
+    // COMMAND HANDLER
+    // ------------------------------------------------------------
 
     private fun handleCommand(
         command: String
@@ -436,6 +655,7 @@ class MainActivity : ComponentActivity() {
 
         when {
 
+            // WhatsApp
             command.contains("open whatsapp") ||
             command.contains("launch whatsapp") ||
             command.contains("start whatsapp") ||
@@ -445,6 +665,7 @@ class MainActivity : ComponentActivity() {
                 openWhatsApp()
             }
 
+            // TIME
             command.contains("what is the time") ||
             command.contains("what's the time") ||
             command.contains("tell me the time") ||
@@ -453,6 +674,31 @@ class MainActivity : ComponentActivity() {
             command == "time" -> {
 
                 tellTime()
+            }
+
+            // SEARCH THE WEB
+            command.contains("search the web for ") -> {
+
+                val topic =
+                    command
+                        .substringAfter(
+                            "search the web for "
+                        )
+                        .trim()
+
+                searchWeb(topic)
+            }
+
+            command.contains("search the internet for ") -> {
+
+                val topic =
+                    command
+                        .substringAfter(
+                            "search the internet for "
+                        )
+                        .trim()
+
+                searchWeb(topic)
             }
 
             command.startsWith("search for ") -> {
@@ -479,30 +725,6 @@ class MainActivity : ComponentActivity() {
                 searchWeb(topic)
             }
 
-            command.contains(
-                "search the web for "
-            ) -> {
-
-                val topic =
-                    command.substringAfter(
-                        "search the web for "
-                    ).trim()
-
-                searchWeb(topic)
-            }
-
-            command.contains(
-                "search the internet for "
-            ) -> {
-
-                val topic =
-                    command.substringAfter(
-                        "search the internet for "
-                    ).trim()
-
-                searchWeb(topic)
-            }
-
             command.startsWith("google ") -> {
 
                 val topic =
@@ -515,13 +737,15 @@ class MainActivity : ComponentActivity() {
                 searchWeb(topic)
             }
 
+            // Unknown command
             else -> {
 
                 updateStatus(
                     "ATLAS\n\n" +
                     "I heard:\n\n" +
                     "\"$command\"\n\n" +
-                    "I don't know that command yet."
+                    "I don't know that command yet.",
+                    AtlasOrbView.MODE_IDLE
                 )
 
                 speak(
@@ -530,6 +754,10 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    // ------------------------------------------------------------
+    // WHATSAPP
+    // ------------------------------------------------------------
 
     private fun openWhatsApp() {
 
@@ -550,6 +778,8 @@ class MainActivity : ComponentActivity() {
 
             try {
 
+                // First attempt:
+                // normal launcher intent.
                 val launchIntent =
                     packageManager.getLaunchIntentForPackage(
                         packageName
@@ -557,9 +787,36 @@ class MainActivity : ComponentActivity() {
 
                 if (launchIntent != null) {
 
-                    whatsappIntent = launchIntent
+                    whatsappIntent =
+                        launchIntent
+
                     break
                 }
+
+                // Second attempt:
+                // explicit launcher intent.
+                val explicitIntent =
+                    Intent(
+                        Intent.ACTION_MAIN
+                    ).apply {
+
+                        addCategory(
+                            Intent.CATEGORY_LAUNCHER
+                        )
+
+                        setPackage(
+                            packageName
+                        )
+
+                        addFlags(
+                            Intent.FLAG_ACTIVITY_NEW_TASK
+                        )
+                    }
+
+                whatsappIntent =
+                    explicitIntent
+
+                break
 
             } catch (_: Exception) {
             }
@@ -572,10 +829,19 @@ class MainActivity : ComponentActivity() {
             ) {
 
                 try {
+
                     startActivity(
                         whatsappIntent
                     )
+
                 } catch (_: Exception) {
+
+                    updateStatus(
+                        "ATLAS\n\n" +
+                        "I couldn't open WhatsApp."
+                    )
+
+                    restartWakeWord()
                 }
             }
 
@@ -586,6 +852,10 @@ class MainActivity : ComponentActivity() {
             )
         }
     }
+
+    // ------------------------------------------------------------
+    // TIME
+    // ------------------------------------------------------------
 
     private fun tellTime() {
 
@@ -607,6 +877,10 @@ class MainActivity : ComponentActivity() {
         )
     }
 
+    // ------------------------------------------------------------
+    // WEB SEARCH
+    // ------------------------------------------------------------
+
     private fun searchWeb(
         topic: String
     ) {
@@ -622,7 +896,7 @@ class MainActivity : ComponentActivity() {
 
         updateStatus(
             "ATLAS\n\n" +
-            "Searching for:\n\n" +
+            "Searching the web for:\n\n" +
             topic,
             AtlasOrbView.MODE_SPEAKING
         )
@@ -633,15 +907,18 @@ class MainActivity : ComponentActivity() {
 
             try {
 
-                val url =
+                val searchUrl =
                     "https://www.google.com/search?q=" +
                     Uri.encode(topic)
 
-                startActivity(
+                val browserIntent =
                     Intent(
                         Intent.ACTION_VIEW,
-                        Uri.parse(url)
+                        Uri.parse(searchUrl)
                     )
+
+                startActivity(
+                    browserIntent
                 )
 
             } catch (_: Exception) {
@@ -653,54 +930,9 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun speak(
-        text: String,
-        afterSpeech: (() -> Unit)? = null
-    ) {
-
-        if (!ttsReady) {
-
-            updateStatus(
-                "ATLAS\n\n$text"
-            )
-
-            restartWakeWord()
-            return
-        }
-
-        speaking = true
-
-        try {
-
-            speechRecognizer?.cancel()
-            speechRecognizer?.destroy()
-
-        } catch (_: Exception) {
-        }
-
-        speechRecognizer = null
-
-        updateStatus(
-            "ATLAS\n\n$text",
-            AtlasOrbView.MODE_SPEAKING
-        )
-
-        val utteranceId =
-            "ATLAS_" +
-            System.currentTimeMillis()
-
-        pendingAction = afterSpeech
-
-        textToSpeech?.speak(
-            text,
-            TextToSpeech.QUEUE_FLUSH,
-            null,
-            utteranceId
-        )
-    }
-
-    private var pendingAction:
-        (() -> Unit)? = null
+    // ------------------------------------------------------------
+    // RESTART WAKE WORD
+    // ------------------------------------------------------------
 
     private fun restartWakeWord() {
 
@@ -712,16 +944,21 @@ class MainActivity : ComponentActivity() {
                 if (
                     !isFinishing &&
                     !isDestroyed &&
-                    !speaking
+                    !speaking &&
+                    !listeningForCommand
                 ) {
 
                     startWakeWordDetection()
                 }
 
             },
-            800
+            1000L
         )
     }
+
+    // ------------------------------------------------------------
+    // PERMISSION
+    // ------------------------------------------------------------
 
     override fun onRequestPermissionsResult(
         requestCode: Int,
@@ -753,9 +990,16 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // ------------------------------------------------------------
+    // CLEANUP
+    // ------------------------------------------------------------
+
     override fun onDestroy() {
 
         handler.removeCallbacksAndMessages(null)
+
+        detectionJob?.cancel()
+        detectionJob = null
 
         try {
             speechRecognizer?.cancel()
@@ -781,6 +1025,10 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
     }
 
+    // ------------------------------------------------------------
+    // ATLAS GLOWING ORB
+    // ------------------------------------------------------------
+
     class AtlasOrbView(
         context: android.content.Context
     ) : View(context) {
@@ -805,7 +1053,9 @@ class MainActivity : ComponentActivity() {
             0f
 
         private val handler =
-            Handler(Looper.getMainLooper())
+            Handler(
+                Looper.getMainLooper()
+            )
 
         private val animationRunnable =
             object : Runnable {
@@ -968,14 +1218,3 @@ class MainActivity : ComponentActivity() {
             )
 
             paint.color =
-                0xFF0088FF.toInt()
-
-            canvas.drawCircle(
-                centerX,
-                centerY,
-                radius * 0.35f,
-                paint
-            )
-        }
-    }
-}
