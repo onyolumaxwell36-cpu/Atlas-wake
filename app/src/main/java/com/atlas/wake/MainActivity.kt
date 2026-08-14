@@ -1448,21 +1448,13 @@ class AtlasOrbView(
         paint.color =
             Color.CYAN
 
-        canvas.drawCircle(
-            centerX,
-            centerY,
-            radius,
-            paint
-        )
-
-        paint.color =
-            Color.WHITE
-
-        canvas.drawCircle(
+                canvas.drawCircle(
             centerX,
             centerY,
             radius * 0.55f,
             paint
         )
     }
+}
+
 }
