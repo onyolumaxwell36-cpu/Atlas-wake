@@ -51,17 +51,30 @@ class MainActivity : ComponentActivity() {
 
     private fun startWakeWord() {
 
-        status.text = "ATLAS Wake\n\nListening for:\nHey Jarvis"
+        status.text =
+            "ATLAS Wake\n\nListening for:\nHey Jarvis"
 
-        engine = WakeWordEngine(this)
+        /*
+         * The wake-word model already exists in the project.
+         * The engine requires the models parameter.
+         */
+        val models = listOf(
+            "hey_jarvis_v0.1.onnx"
+        )
+
+        engine = WakeWordEngine(
+            context = this,
+            models = models
+        )
 
         engine?.start()
 
         lifecycleScope.launch {
-            engine?.detections?.collect { detection ->
+            engine?.detections?.collect {
 
                 status.text =
-                    "ATLAS WAKE!\n\nWake word detected!\n\nListening for your command..."
+                    "ATLAS WAKE!\n\nWake word detected!\n\n" +
+                    "Listening for your command..."
 
                 startCommandListening()
             }
