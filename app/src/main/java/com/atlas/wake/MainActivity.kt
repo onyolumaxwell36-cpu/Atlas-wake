@@ -782,4 +782,679 @@ class MainActivity : ComponentActivity() {
             )
 
         intent.putExtra(
-            Recognize
+            RecognizerIntent
+                .EXTRA_LANGUAGE_MODEL,
+            RecognizerIntent
+                .LANGUAGE_MODEL_FREE_FORM
+        )
+
+        intent.putExtra(
+            RecognizerIntent.EXTRA_LANGUAGE,
+            Locale.getDefault()
+        )
+
+        intent.putExtra(
+            RecognizerIntent.EXTRA_MAX_RESULTS,
+            5
+        )
+
+        intent.putExtra(
+            RecognizerIntent.EXTRA_PARTIAL_RESULTS,
+            false
+        )
+
+        try {
+
+            speechRecognizer
+                ?.startListening(intent)
+
+        } catch (_: Exception) {
+
+            if (
+                commandRetryCount < 2
+            ) {
+
+                commandRetryCount++
+
+                handler.postDelayed(
+                    {
+
+                        listenForCommand()
+
+                    },
+                    500L
+                )
+
+            } else {
+
+                listeningForCommand =
+                    false
+
+                conversationMode =
+                    false
+
+                speak(
+                    "I couldn't start listening."
+                )
+            }
+        }
+    }
+
+    // ============================================================
+    // COMMAND HANDLER
+    // ============================================================
+
+    private fun handleCommand(
+        command: String
+    ) {
+
+        when {
+
+            // ----------------------------------------------------
+            // WHATSAPP
+            // ----------------------------------------------------
+
+            command.contains(
+                "open whatsapp"
+            ) ||
+            command.contains(
+                "launch whatsapp"
+            ) ||
+            command.contains(
+                "start whatsapp"
+            ) ||
+            command.contains(
+                "open my whatsapp"
+            ) ||
+            command.contains(
+                "go to whatsapp"
+            ) -> {
+
+                conversationMode = false
+
+                openWhatsApp()
+            }
+
+            // ----------------------------------------------------
+            // TIME
+            // ----------------------------------------------------
+
+            command.contains(
+                "what is the time"
+            ) ||
+            command.contains(
+                "what's the time"
+            ) ||
+            command.contains(
+                "tell me the time"
+            ) ||
+            command.contains(
+                "time now"
+            ) ||
+            command.contains(
+                "current time"
+            ) ||
+            command == "time" -> {
+
+                tellTime()
+            }
+
+            // ----------------------------------------------------
+            // WEB SEARCH
+            // ----------------------------------------------------
+
+            command.contains(
+                "search the web for "
+            ) -> {
+
+                val topic =
+                    command
+                        .substringAfter(
+                            "search the web for "
+                        )
+                        .trim()
+
+                searchWeb(topic)
+            }
+
+            command.contains(
+                "search the internet for "
+            ) -> {
+
+                val topic =
+                    command
+                        .substringAfter(
+                            "search the internet for "
+                        )
+                        .trim()
+
+                searchWeb(topic)
+            }
+
+            command.startsWith(
+                "search for "
+            ) -> {
+
+                val topic =
+                    command
+                        .removePrefix(
+                            "search for "
+                        )
+                        .trim()
+
+                searchWeb(topic)
+            }
+
+            command.startsWith(
+                "search "
+            ) -> {
+
+                val topic =
+                    command
+                        .removePrefix(
+                            "search "
+                        )
+                        .trim()
+
+                searchWeb(topic)
+            }
+
+            command.startsWith(
+                "google "
+            ) -> {
+
+                val topic =
+                    command
+                        .removePrefix(
+                            "google "
+                        )
+                        .trim()
+
+                searchWeb(topic)
+            }
+
+            // ----------------------------------------------------
+            // SLEEP
+            // ----------------------------------------------------
+
+            command.contains(
+                "stop listening"
+            ) ||
+            command.contains(
+                "go to sleep"
+            ) -> {
+
+                conversationMode =
+                    false
+
+                speak(
+                    "Alright. I'll go back to standby."
+                )
+            }
+
+            // ----------------------------------------------------
+            // UNKNOWN
+            // ----------------------------------------------------
+
+            else -> {
+
+                speak(
+                    "I heard you say $command. " +
+                    "I don't have an answer for that yet, " +
+                    "but I'm ready for another command.",
+                    true
+                )
+            }
+        }
+    }
+
+    // ============================================================
+    // WHATSAPP
+    // ============================================================
+
+    private fun openWhatsApp() {
+
+        updateStatus(
+            "ATLAS\n\nOpening WhatsApp...",
+            AtlasOrbView.MODE_SPEAKING
+        )
+
+        val possiblePackages =
+            listOf(
+                "com.whatsapp",
+                "com.whatsapp.w4b"
+            )
+
+        var launchIntent:
+            Intent? = null
+
+        for (
+            packageName in possiblePackages
+        ) {
+
+            try {
+
+                val intent =
+                    packageManager
+                        .getLaunchIntentForPackage(
+                            packageName
+                        )
+
+                if (
+                    intent != null
+                ) {
+
+                    launchIntent =
+                        intent
+
+                    break
+                }
+
+            } catch (_: Exception) {
+            }
+        }
+
+        if (
+            launchIntent != null
+        ) {
+
+            speak(
+                "Sure. Opening WhatsApp."
+            )
+
+            handler.postDelayed(
+                {
+
+                    try {
+
+                        startActivity(
+                            launchIntent
+                        )
+
+                    } catch (_: Exception) {
+
+                        speak(
+                            "I found WhatsApp, " +
+                            "but Android wouldn't let me open it."
+                        )
+                    }
+
+                },
+                700L
+            )
+
+        } else {
+
+            speak(
+                "I still can't find WhatsApp. " +
+                "Check that it's installed and try again."
+            )
+        }
+    }
+
+    // ============================================================
+    // TIME
+    // ============================================================
+
+    private fun tellTime() {
+
+        val currentTime =
+            SimpleDateFormat(
+                "h:mm a",
+                Locale.getDefault()
+            ).format(
+                Date()
+            )
+
+        speak(
+            "It's $currentTime.",
+            true
+        )
+    }
+
+    // ============================================================
+    // WEB SEARCH
+    // ============================================================
+
+    private fun searchWeb(
+        topic: String
+    ) {
+
+        if (
+            topic.isBlank()
+        ) {
+
+            speak(
+                "What would you like me to search for?",
+                true
+            )
+
+            return
+        }
+
+        updateStatus(
+            "ATLAS\n\n" +
+            "Searching the web for:\n\n" +
+            topic,
+            AtlasOrbView.MODE_SPEAKING
+        )
+
+        speak(
+            "Alright. I'll search the web for $topic."
+        )
+
+        handler.postDelayed(
+            {
+
+                try {
+
+                    val searchUrl =
+                        "https://www.google.com/search?q=" +
+                        Uri.encode(topic)
+
+                    val browserIntent =
+                        Intent(
+                            Intent.ACTION_VIEW,
+                            Uri.parse(searchUrl)
+                        )
+
+                    startActivity(
+                        browserIntent
+                    )
+
+                } catch (_: Exception) {
+
+                    speak(
+                        "I couldn't open the browser."
+                    )
+                }
+
+            },
+            1000L
+        )
+    }
+
+    // ============================================================
+    // RESTART WAKE WORD
+    // ============================================================
+
+    private fun restartWakeWord() {
+
+        listeningForCommand =
+            false
+
+        conversationMode =
+            false
+
+        handler.postDelayed(
+            {
+
+                if (
+                    !isFinishing &&
+                    !isDestroyed &&
+                    !speaking &&
+                    !listeningForCommand
+                ) {
+
+                    startWakeWordDetection()
+                }
+
+            },
+            1000L
+        )
+    }
+
+    // ============================================================
+    // PERMISSION
+    // ============================================================
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>,
+        grantResults: IntArray
+    ) {
+
+        super.onRequestPermissionsResult(
+            requestCode,
+            permissions,
+            grantResults
+        )
+
+        if (
+            requestCode ==
+            MICROPHONE_REQUEST &&
+            grantResults.isNotEmpty() &&
+            grantResults[0] ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+
+            startWakeWordDetection()
+
+        } else {
+
+            updateStatus(
+                "ATLAS\n\n" +
+                "Microphone permission denied."
+            )
+        }
+    }
+
+    // ============================================================
+    // CLEANUP
+    // ============================================================
+
+    override fun onDestroy() {
+
+        handler.removeCallbacksAndMessages(
+            null
+        )
+
+        detectionJob?.cancel()
+
+        try {
+
+            speechRecognizer?.cancel()
+            speechRecognizer?.destroy()
+
+        } catch (_: Exception) {
+        }
+
+        try {
+
+            wakeWordEngine?.release()
+
+        } catch (_: Exception) {
+        }
+
+        try {
+
+            textToSpeech?.stop()
+            textToSpeech?.shutdown()
+
+        } catch (_: Exception) {
+        }
+
+        speechRecognizer = null
+        wakeWordEngine = null
+        textToSpeech = null
+
+        super.onDestroy()
+    }
+
+    // ============================================================
+    // JARVIS GLOWING ORB
+    // ============================================================
+class AtlasOrbView(
+    context: android.content.Context
+) : View(context) {
+
+    companion object {
+        const val MODE_IDLE = 0
+        const val MODE_LISTENING = 1
+        const val MODE_SPEAKING = 2
+    }
+
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+
+    private var mode = MODE_IDLE
+    private var audioLevel = 0f
+    private var animationTime = 0f
+
+    private val animationHandler =
+        Handler(Looper.getMainLooper())
+
+    private val animationRunnable =
+        object : Runnable {
+
+            override fun run() {
+
+                animationTime += 0.08f
+
+                invalidate()
+
+                animationHandler.postDelayed(
+                    this,
+                    30L
+                )
+            }
+        }
+
+    init {
+
+        paint.isAntiAlias = true
+
+        animationHandler.post(
+            animationRunnable
+        )
+    }
+
+    fun setMode(
+        newMode: Int
+    ) {
+
+        mode = newMode
+
+        invalidate()
+    }
+
+    fun setAudioLevel(
+        level: Float
+    ) {
+
+        audioLevel =
+            level.coerceIn(
+                -10f,
+                10f
+            )
+
+        invalidate()
+    }
+
+    override fun onDraw(
+        canvas: Canvas
+    ) {
+
+        super.onDraw(canvas)
+
+        val centerX =
+            width / 2f
+
+        val centerY =
+            height / 2f
+
+        val baseRadius =
+            minOf(
+                width,
+                height
+            ) * 0.20f
+
+        val pulse =
+            when (mode) {
+
+                MODE_LISTENING ->
+                    1f +
+                    0.08f *
+                    sin(
+                        animationTime * 2f
+                    )
+
+                MODE_SPEAKING ->
+                    1f +
+                    0.18f *
+                    sin(
+                        animationTime * 5f
+                    )
+
+                else ->
+                    1f +
+                    0.03f *
+                    sin(
+                        animationTime
+                    )
+            }
+
+        val audioPulse =
+            if (
+                mode ==
+                MODE_LISTENING
+            ) {
+
+                (audioLevel + 10f) / 100f
+
+            } else {
+
+                0f
+            }
+
+        val radius =
+            baseRadius *
+            pulse *
+            (1f + audioPulse)
+
+        val gradient =
+            RadialGradient(
+                centerX,
+                centerY,
+                radius * 2.5f,
+
+                intArrayOf(
+                    Color.WHITE,
+                    Color.CYAN,
+                    Color.BLUE,
+                    Color.TRANSPARENT
+                ),
+
+                floatArrayOf(
+                    0f,
+                    0.22f,
+                    0.55f,
+                    1f
+                ),
+
+                Shader.TileMode.CLAMP
+            )
+
+        paint.shader = gradient
+
+        canvas.drawCircle(
+            centerX,
+            centerY,
+            radius * 2.2f,
+            paint
+        )
+
+        paint.shader = null
+
+        paint.color =
+            Color.CYAN
+
+                canvas.drawCircle(
+            centerX,
+            centerY,
+            radius * 0.55f,
+            paint
+        )
+    }
+}
+
+}
