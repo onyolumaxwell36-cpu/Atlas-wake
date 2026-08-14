@@ -1,5 +1,0 @@
-package com.atlas.wake
-
-import com.rementia.openwakeword.lib.WakeWordEngine
-
-class ApiTest
