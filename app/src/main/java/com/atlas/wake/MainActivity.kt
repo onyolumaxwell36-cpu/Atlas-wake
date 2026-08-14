@@ -1218,3 +1218,14 @@ class MainActivity : ComponentActivity() {
             )
 
             paint.color =
+    0xFF0088FF.toInt()
+
+canvas.drawCircle(
+    centerX,
+    centerY,
+    radius * 0.35f,
+    paint
+)
+        }
+    }
+}
