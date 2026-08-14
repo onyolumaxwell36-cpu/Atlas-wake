@@ -27,6 +27,7 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.cos
 import kotlin.math.sin
 
 class MainActivity : ComponentActivity() {
@@ -74,9 +75,9 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // ------------------------------------------------------------
-    // INTERFACE
-    // ------------------------------------------------------------
+    // ============================================================
+    // JARVIS INTERFACE
+    // ============================================================
 
     private fun createInterface() {
 
@@ -85,42 +86,136 @@ class MainActivity : ComponentActivity() {
         root.orientation = LinearLayout.VERTICAL
         root.gravity = Gravity.CENTER
 
-        // BLACK BACKGROUND
         root.setBackgroundColor(Color.BLACK)
 
         root.setPadding(
-            30,
-            50,
-            30,
-            50
+            24,
+            45,
+            24,
+            35
         )
+
+        // --------------------------------------------------------
+        // ATLAS TITLE
+        // --------------------------------------------------------
+
+        val title = TextView(this)
+
+        title.text = "A T L A S"
+        title.textSize = 30f
+        title.gravity = Gravity.CENTER
+        title.setTextColor(Color.CYAN)
+        title.setTypeface(Typeface.create("sans-serif", Typeface.BOLD))
+        title.letterSpacing = 0.18f
+
+        root.addView(
+            title,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        )
+
+        // --------------------------------------------------------
+        // SUBTITLE
+        // --------------------------------------------------------
+
+        val subtitle = TextView(this)
+
+        subtitle.text = "ARTIFICIAL INTELLIGENCE ASSISTANT"
+        subtitle.textSize = 10f
+        subtitle.gravity = Gravity.CENTER
+        subtitle.setTextColor(
+            Color.rgb(70, 180, 220)
+        )
+        subtitle.letterSpacing = 0.12f
+
+        val subtitleParams =
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+
+        subtitleParams.setMargins(
+            0,
+            6,
+            0,
+            15
+        )
+
+        root.addView(
+            subtitle,
+            subtitleParams
+        )
+
+        // --------------------------------------------------------
+        // GLOWING ORB
+        // --------------------------------------------------------
 
         orb = AtlasOrbView(this)
 
         root.addView(
             orb,
             LinearLayout.LayoutParams(
-                420,
-                420
+                560,
+                560
             )
         )
 
+        // --------------------------------------------------------
+        // STATUS
+        // --------------------------------------------------------
+
         status = TextView(this)
 
-        status.text = "ATLAS\n\nStarting..."
-        status.textSize = 20f
+        status.text =
+            "ATLAS\n\nStarting..."
+
+        status.textSize = 19f
         status.gravity = Gravity.CENTER
-        status.setTextColor(Color.WHITE)
+
+        status.setTextColor(
+            Color.rgb(0, 229, 255)
+        )
+
+        status.setTypeface(
+            Typeface.create(
+                "sans-serif",
+                Typeface.NORMAL
+            )
+        )
 
         status.setPadding(
             20,
-            30,
             20,
-            20
+            20,
+            15
         )
 
         root.addView(
             status,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        )
+
+        // --------------------------------------------------------
+        // BOTTOM HUD LABEL
+        // --------------------------------------------------------
+
+        val footer = TextView(this)
+
+        footer.text = "VOICE CONTROL • ATLAS ONLINE"
+        footer.textSize = 9f
+        footer.gravity = Gravity.CENTER
+        footer.setTextColor(
+            Color.rgb(35, 110, 140)
+        )
+        footer.letterSpacing = 0.08f
+
+        root.addView(
+            footer,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -134,93 +229,131 @@ class MainActivity : ComponentActivity() {
         message: String,
         mode: Int = AtlasOrbView.MODE_IDLE
     ) {
+
         runOnUiThread {
+
             status.text = message
+
             orb.setMode(mode)
         }
     }
 
-    // ------------------------------------------------------------
+    // ============================================================
     // TEXT TO SPEECH
-    // ------------------------------------------------------------
+    // ============================================================
 
     private fun initializeTextToSpeech() {
 
-        textToSpeech = TextToSpeech(
-            this
-        ) { result ->
+        textToSpeech =
+            TextToSpeech(
+                this
+            ) { result ->
 
-            if (result != TextToSpeech.SUCCESS) {
-                ttsReady = false
-                return@TextToSpeech
-            }
+                if (
+                    result !=
+                    TextToSpeech.SUCCESS
+                ) {
 
-            val languageResult =
-                textToSpeech?.setLanguage(
-                    Locale.getDefault()
+                    ttsReady = false
+
+                    return@TextToSpeech
+                }
+
+                val languageResult =
+                    textToSpeech?.setLanguage(
+                        Locale.getDefault()
+                    )
+
+                ttsReady =
+                    languageResult !=
+                        TextToSpeech.LANG_MISSING_DATA &&
+                    languageResult !=
+                        TextToSpeech.LANG_NOT_SUPPORTED
+
+                textToSpeech?.setSpeechRate(
+                    0.95f
                 )
 
-            ttsReady =
-                languageResult != TextToSpeech.LANG_MISSING_DATA &&
-                languageResult != TextToSpeech.LANG_NOT_SUPPORTED
+                textToSpeech?.setPitch(
+                    0.95f
+                )
 
-            textToSpeech?.setSpeechRate(0.95f)
-            textToSpeech?.setPitch(0.95f)
+                textToSpeech?.setOnUtteranceProgressListener(
 
-            textToSpeech?.setOnUtteranceProgressListener(
-                object : UtteranceProgressListener() {
+                    object :
+                        UtteranceProgressListener() {
 
-                    override fun onStart(
-                        utteranceId: String?
-                    ) {
-                        runOnUiThread {
-                            speaking = true
-                            orb.setMode(
-                                AtlasOrbView.MODE_SPEAKING
-                            )
-                        }
-                    }
+                        override fun onStart(
+                            utteranceId: String?
+                        ) {
 
-                    override fun onDone(
-                        utteranceId: String?
-                    ) {
-                        runOnUiThread {
-                            speaking = false
+                            runOnUiThread {
 
-                            if (conversationMode) {
-                                handler.postDelayed(
-                                    {
-                                        if (
-                                            !isFinishing &&
-                                            !isDestroyed
-                                        ) {
-                                            listenForCommand()
-                                        }
-                                    },
-                                    300L
+                                speaking = true
+
+                                orb.setMode(
+                                    AtlasOrbView.MODE_SPEAKING
                                 )
-                            } else {
-                                restartWakeWord()
+                            }
+                        }
+
+                        override fun onDone(
+                            utteranceId: String?
+                        ) {
+
+                            runOnUiThread {
+
+                                speaking = false
+
+                                if (
+                                    conversationMode
+                                ) {
+
+                                    handler.postDelayed(
+                                        {
+
+                                            if (
+                                                !isFinishing &&
+                                                !isDestroyed
+                                            ) {
+
+                                                listenForCommand()
+                                            }
+
+                                        },
+                                        350L
+                                    )
+
+                                } else {
+
+                                    restartWakeWord()
+                                }
+                            }
+                        }
+
+                        override fun onError(
+                            utteranceId: String?
+                        ) {
+
+                            runOnUiThread {
+
+                                speaking = false
+
+                                if (
+                                    conversationMode
+                                ) {
+
+                                    listenForCommand()
+
+                                } else {
+
+                                    restartWakeWord()
+                                }
                             }
                         }
                     }
-
-                    override fun onError(
-                        utteranceId: String?
-                    ) {
-                        runOnUiThread {
-                            speaking = false
-
-                            if (conversationMode) {
-                                listenForCommand()
-                            } else {
-                                restartWakeWord()
-                            }
-                        }
-                    }
-                }
-            )
-        }
+                )
+            }
     }
 
     private fun speak(
@@ -229,11 +362,14 @@ class MainActivity : ComponentActivity() {
         afterSpeech: (() -> Unit)? = null
     ) {
 
-        conversationMode = continueConversation
+        conversationMode =
+            continueConversation
 
         try {
+
             speechRecognizer?.cancel()
             speechRecognizer?.destroy()
+
         } catch (_: Exception) {
         }
 
@@ -248,9 +384,14 @@ class MainActivity : ComponentActivity() {
 
             afterSpeech?.invoke()
 
-            if (conversationMode) {
+            if (
+                conversationMode
+            ) {
+
                 listenForCommand()
+
             } else {
+
                 restartWakeWord()
             }
 
@@ -258,7 +399,8 @@ class MainActivity : ComponentActivity() {
         }
 
         val utteranceId =
-            "ATLAS_" + System.currentTimeMillis()
+            "ATLAS_" +
+            System.currentTimeMillis()
 
         textToSpeech?.speak(
             text,
@@ -267,19 +409,27 @@ class MainActivity : ComponentActivity() {
             utteranceId
         )
 
-        if (afterSpeech != null) {
+        if (
+            afterSpeech != null
+        ) {
+
             handler.postDelayed(
                 {
-                    afterSpeech.invoke()
+
+                    try {
+                        afterSpeech.invoke()
+                    } catch (_: Exception) {
+                    }
+
                 },
-                1000L
+                900L
             )
         }
     }
 
-    // ------------------------------------------------------------
+    // ============================================================
     // WAKE WORD
-    // ------------------------------------------------------------
+    // ============================================================
 
     private fun startWakeWordDetection() {
 
@@ -301,8 +451,10 @@ class MainActivity : ComponentActivity() {
             listOf(
                 WakeWordModel(
                     name = "Hey Jarvis",
-                    modelPath = "hey_jarvis_v0.1.onnx",
-                    threshold = WAKE_THRESHOLD
+                    modelPath =
+                        "hey_jarvis_v0.1.onnx",
+                    threshold =
+                        WAKE_THRESHOLD
                 )
             )
 
@@ -320,47 +472,59 @@ class MainActivity : ComponentActivity() {
                     models = models,
                     detectionMode =
                         DetectionMode.SINGLE_BEST,
-                    detectionCooldownMs = 1000L
+                    detectionCooldownMs =
+                        1000L
                 )
 
             detectionJob =
                 lifecycleScope.launch {
 
-                    wakeWordEngine?.detections?.collect {
+                    wakeWordEngine
+                        ?.detections
+                        ?.collect {
 
-                        if (
-                            speaking ||
-                            listeningForCommand
-                        ) {
-                            return@collect
+                            if (
+                                speaking ||
+                                listeningForCommand
+                            ) {
+
+                                return@collect
+                            }
+
+                            listeningForCommand =
+                                true
+
+                            conversationMode =
+                                true
+
+                            commandRetryCount =
+                                0
+
+                            stopWakeWord()
+
+                            updateStatus(
+                                "ATLAS\n\n" +
+                                "HEY JARVIS\n\n" +
+                                "I'm listening...",
+                                AtlasOrbView.MODE_LISTENING
+                            )
+
+                            handler.postDelayed(
+                                {
+
+                                    if (
+                                        !isFinishing &&
+                                        !isDestroyed &&
+                                        listeningForCommand
+                                    ) {
+
+                                        listenForCommand()
+                                    }
+
+                                },
+                                300L
+                            )
                         }
-
-                        listeningForCommand = true
-                        conversationMode = true
-                        commandRetryCount = 0
-
-                        stopWakeWord()
-
-                        updateStatus(
-                            "ATLAS\n\n" +
-                            "HEY JARVIS\n\n" +
-                            "I'm listening...",
-                            AtlasOrbView.MODE_LISTENING
-                        )
-
-                        handler.postDelayed(
-                            {
-                                if (
-                                    !isFinishing &&
-                                    !isDestroyed &&
-                                    listeningForCommand
-                                ) {
-                                    listenForCommand()
-                                }
-                            },
-                            300L
-                        )
-                    }
                 }
 
             wakeWordEngine?.start()
@@ -368,19 +532,24 @@ class MainActivity : ComponentActivity() {
         } catch (e: Exception) {
 
             updateStatus(
-                "ATLAS\n\nWake-word error.\n\n${e.message}"
+                "ATLAS\n\n" +
+                "Wake-word error.\n\n" +
+                "${e.message}"
             )
 
             handler.postDelayed(
                 {
+
                     if (
                         !speaking &&
                         !listeningForCommand &&
                         !isFinishing &&
                         !isDestroyed
                     ) {
+
                         startWakeWordDetection()
                     }
+
                 },
                 1500L
             )
@@ -390,19 +559,22 @@ class MainActivity : ComponentActivity() {
     private fun stopWakeWord() {
 
         detectionJob?.cancel()
+
         detectionJob = null
 
         try {
+
             wakeWordEngine?.release()
+
         } catch (_: Exception) {
         }
 
         wakeWordEngine = null
     }
 
-    // ------------------------------------------------------------
+    // ============================================================
     // SPEECH RECOGNITION
-    // ------------------------------------------------------------
+    // ============================================================
 
     private fun listenForCommand() {
 
@@ -416,9 +588,8 @@ class MainActivity : ComponentActivity() {
         listeningForCommand = true
 
         if (
-            !SpeechRecognizer.isRecognitionAvailable(
-                this
-            )
+            !SpeechRecognizer
+                .isRecognitionAvailable(this)
         ) {
 
             listeningForCommand = false
@@ -431,22 +602,26 @@ class MainActivity : ComponentActivity() {
         }
 
         try {
+
             speechRecognizer?.cancel()
             speechRecognizer?.destroy()
+
         } catch (_: Exception) {
         }
 
         speechRecognizer =
-            SpeechRecognizer.createSpeechRecognizer(
-                this
-            )
+            SpeechRecognizer
+                .createSpeechRecognizer(this)
 
         speechRecognizer?.setRecognitionListener(
-            object : RecognitionListener {
+
+            object :
+                RecognitionListener {
 
                 override fun onReadyForSpeech(
                     params: Bundle?
                 ) {
+
                     updateStatus(
                         "ATLAS\n\nI'm listening...",
                         AtlasOrbView.MODE_LISTENING
@@ -454,6 +629,7 @@ class MainActivity : ComponentActivity() {
                 }
 
                 override fun onBeginningOfSpeech() {
+
                     updateStatus(
                         "ATLAS\n\nI'm hearing you...",
                         AtlasOrbView.MODE_LISTENING
@@ -463,7 +639,10 @@ class MainActivity : ComponentActivity() {
                 override fun onRmsChanged(
                     rmsdB: Float
                 ) {
-                    orb.setAudioLevel(rmsdB)
+
+                    orb.setAudioLevel(
+                        rmsdB
+                    )
                 }
 
                 override fun onBufferReceived(
@@ -472,6 +651,7 @@ class MainActivity : ComponentActivity() {
                 }
 
                 override fun onEndOfSpeech() {
+
                     updateStatus(
                         "ATLAS\n\nThinking...",
                         AtlasOrbView.MODE_SPEAKING
@@ -483,7 +663,9 @@ class MainActivity : ComponentActivity() {
                 ) {
 
                     try {
+
                         speechRecognizer?.destroy()
+
                     } catch (_: Exception) {
                     }
 
@@ -495,22 +677,35 @@ class MainActivity : ComponentActivity() {
 
                         commandRetryCount++
 
+                        updateStatus(
+                            "ATLAS\n\n" +
+                            "I didn't catch that.\n\n" +
+                            "Listening again...",
+                            AtlasOrbView.MODE_LISTENING
+                        )
+
                         handler.postDelayed(
                             {
+
                                 if (
                                     !isFinishing &&
                                     !isDestroyed
                                 ) {
+
                                     listenForCommand()
                                 }
+
                             },
                             500L
                         )
 
                     } else {
 
-                        listeningForCommand = false
-                        conversationMode = false
+                        listeningForCommand =
+                            false
+
+                        conversationMode =
+                            false
 
                         speak(
                             "I didn't catch that. Try me again."
@@ -523,9 +718,11 @@ class MainActivity : ComponentActivity() {
                 ) {
 
                     val matches =
-                        results?.getStringArrayList(
-                            SpeechRecognizer.RESULTS_RECOGNITION
-                        )
+                        results
+                            ?.getStringArrayList(
+                                SpeechRecognizer
+                                    .RESULTS_RECOGNITION
+                            )
 
                     val command =
                         matches
@@ -537,14 +734,20 @@ class MainActivity : ComponentActivity() {
                             ?: ""
 
                     try {
+
                         speechRecognizer?.destroy()
+
                     } catch (_: Exception) {
                     }
 
                     speechRecognizer = null
-                    listeningForCommand = false
 
-                    if (command.isBlank()) {
+                    listeningForCommand =
+                        false
+
+                    if (
+                        command.isBlank()
+                    ) {
 
                         speak(
                             "I didn't hear you clearly. Try again.",
@@ -554,7 +757,9 @@ class MainActivity : ComponentActivity() {
                         return
                     }
 
-                    handleCommand(command)
+                    handleCommand(
+                        command
+                    )
                 }
 
                 override fun onPartialResults(
@@ -572,12 +777,15 @@ class MainActivity : ComponentActivity() {
 
         val intent =
             Intent(
-                RecognizerIntent.ACTION_RECOGNIZE_SPEECH
+                RecognizerIntent
+                    .ACTION_RECOGNIZE_SPEECH
             )
 
         intent.putExtra(
-            RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-            RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+            RecognizerIntent
+                .EXTRA_LANGUAGE_MODEL,
+            RecognizerIntent
+                .LANGUAGE_MODEL_FREE_FORM
         )
 
         intent.putExtra(
@@ -596,24 +804,34 @@ class MainActivity : ComponentActivity() {
         )
 
         try {
-            speechRecognizer?.startListening(intent)
+
+            speechRecognizer
+                ?.startListening(intent)
+
         } catch (_: Exception) {
 
-            if (commandRetryCount < 2) {
+            if (
+                commandRetryCount < 2
+            ) {
 
                 commandRetryCount++
 
                 handler.postDelayed(
                     {
+
                         listenForCommand()
+
                     },
                     500L
                 )
 
             } else {
 
-                listeningForCommand = false
-                conversationMode = false
+                listeningForCommand =
+                    false
+
+                conversationMode =
+                    false
 
                 speak(
                     "I couldn't start listening."
@@ -622,9 +840,9 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // ------------------------------------------------------------
-    // COMMANDS
-    // ------------------------------------------------------------
+    // ============================================================
+    // COMMAND HANDLER
+    // ============================================================
 
     private fun handleCommand(
         command: String
@@ -632,27 +850,62 @@ class MainActivity : ComponentActivity() {
 
         when {
 
-            command.contains("open whatsapp") ||
-            command.contains("launch whatsapp") ||
-            command.contains("start whatsapp") ||
-            command.contains("open my whatsapp") ||
-            command.contains("go to whatsapp") -> {
+            // ----------------------------------------------------
+            // WHATSAPP
+            // ----------------------------------------------------
+
+            command.contains(
+                "open whatsapp"
+            ) ||
+            command.contains(
+                "launch whatsapp"
+            ) ||
+            command.contains(
+                "start whatsapp"
+            ) ||
+            command.contains(
+                "open my whatsapp"
+            ) ||
+            command.contains(
+                "go to whatsapp"
+            ) -> {
 
                 conversationMode = false
+
                 openWhatsApp()
             }
 
-            command.contains("what is the time") ||
-            command.contains("what's the time") ||
-            command.contains("tell me the time") ||
-            command.contains("time now") ||
-            command.contains("current time") ||
+            // ----------------------------------------------------
+            // TIME
+            // ----------------------------------------------------
+
+            command.contains(
+                "what is the time"
+            ) ||
+            command.contains(
+                "what's the time"
+            ) ||
+            command.contains(
+                "tell me the time"
+            ) ||
+            command.contains(
+                "time now"
+            ) ||
+            command.contains(
+                "current time"
+            ) ||
             command == "time" -> {
 
                 tellTime()
             }
 
-            command.contains("search the web for ") -> {
+            // ----------------------------------------------------
+            // WEB SEARCH
+            // ----------------------------------------------------
+
+            command.contains(
+                "search the web for "
+            ) -> {
 
                 val topic =
                     command
@@ -664,7 +917,9 @@ class MainActivity : ComponentActivity() {
                 searchWeb(topic)
             }
 
-            command.contains("search the internet for ") -> {
+            command.contains(
+                "search the internet for "
+            ) -> {
 
                 val topic =
                     command
@@ -676,59 +931,86 @@ class MainActivity : ComponentActivity() {
                 searchWeb(topic)
             }
 
-            command.startsWith("search for ") -> {
+            command.startsWith(
+                "search for "
+            ) -> {
 
                 val topic =
                     command
-                        .removePrefix("search for ")
+                        .removePrefix(
+                            "search for "
+                        )
                         .trim()
 
                 searchWeb(topic)
             }
 
-            command.startsWith("search ") -> {
+            command.startsWith(
+                "search "
+            ) -> {
 
                 val topic =
                     command
-                        .removePrefix("search ")
+                        .removePrefix(
+                            "search "
+                        )
                         .trim()
 
                 searchWeb(topic)
             }
 
-            command.startsWith("google ") -> {
+            command.startsWith(
+                "google "
+            ) -> {
 
                 val topic =
                     command
-                        .removePrefix("google ")
+                        .removePrefix(
+                            "google "
+                        )
                         .trim()
 
                 searchWeb(topic)
             }
 
-            command.contains("stop listening") ||
-            command.contains("go to sleep") -> {
+            // ----------------------------------------------------
+            // SLEEP
+            // ----------------------------------------------------
 
-                conversationMode = false
+            command.contains(
+                "stop listening"
+            ) ||
+            command.contains(
+                "go to sleep"
+            ) -> {
+
+                conversationMode =
+                    false
 
                 speak(
                     "Alright. I'll go back to standby."
                 )
             }
 
+            // ----------------------------------------------------
+            // UNKNOWN
+            // ----------------------------------------------------
+
             else -> {
 
                 speak(
-                    "I heard you say $command. I don't have an AI answer for that yet. But I'm ready for another command.",
+                    "I heard you say $command. " +
+                    "I don't have an answer for that yet, " +
+                    "but I'm ready for another command.",
                     true
                 )
             }
         }
     }
 
-    // ------------------------------------------------------------
+    // ============================================================
     // WHATSAPP
-    // ------------------------------------------------------------
+    // ============================================================
 
     private fun openWhatsApp() {
 
@@ -743,20 +1025,28 @@ class MainActivity : ComponentActivity() {
                 "com.whatsapp.w4b"
             )
 
-        var launchIntent: Intent? = null
+        var launchIntent:
+            Intent? = null
 
-        for (packageName in possiblePackages) {
+        for (
+            packageName in possiblePackages
+        ) {
 
             try {
 
                 val intent =
-                    packageManager.getLaunchIntentForPackage(
-                        packageName
-                    )
+                    packageManager
+                        .getLaunchIntentForPackage(
+                            packageName
+                        )
 
-                if (intent != null) {
+                if (
+                    intent != null
+                ) {
 
-                    launchIntent = intent
+                    launchIntent =
+                        intent
+
                     break
                 }
 
@@ -764,21 +1054,31 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        if (launchIntent != null) {
+        if (
+            launchIntent != null
+        ) {
 
             speak(
-                "Opening WhatsApp."
+                "Sure. Opening WhatsApp."
             )
 
             handler.postDelayed(
                 {
+
                     try {
-                        startActivity(launchIntent)
+
+                        startActivity(
+                            launchIntent
+                        )
+
                     } catch (_: Exception) {
+
                         speak(
-                            "I found WhatsApp, but Android wouldn't let me open it."
+                            "I found WhatsApp, " +
+                            "but Android wouldn't let me open it."
                         )
                     }
+
                 },
                 700L
             )
@@ -786,14 +1086,15 @@ class MainActivity : ComponentActivity() {
         } else {
 
             speak(
-                "I still can't find WhatsApp. Check that WhatsApp is installed and try again."
+                "I still can't find WhatsApp. " +
+                "Check that it's installed and try again."
             )
         }
     }
 
-    // ------------------------------------------------------------
+    // ============================================================
     // TIME
-    // ------------------------------------------------------------
+    // ============================================================
 
     private fun tellTime() {
 
@@ -801,23 +1102,27 @@ class MainActivity : ComponentActivity() {
             SimpleDateFormat(
                 "h:mm a",
                 Locale.getDefault()
-            ).format(Date())
+            ).format(
+                Date()
+            )
 
         speak(
-            "The time is $currentTime.",
+            "It's $currentTime.",
             true
         )
     }
 
-    // ------------------------------------------------------------
+    // ============================================================
     // WEB SEARCH
-    // ------------------------------------------------------------
+    // ============================================================
 
     private fun searchWeb(
         topic: String
     ) {
 
-        if (topic.isBlank()) {
+        if (
+            topic.isBlank()
+        ) {
 
             speak(
                 "What would you like me to search for?",
@@ -829,7 +1134,8 @@ class MainActivity : ComponentActivity() {
 
         updateStatus(
             "ATLAS\n\n" +
-            "Searching the web for:\n\n$topic",
+            "Searching the web for:\n\n" +
+            topic,
             AtlasOrbView.MODE_SPEAKING
         )
 
@@ -852,7 +1158,9 @@ class MainActivity : ComponentActivity() {
                             Uri.parse(searchUrl)
                         )
 
-                    startActivity(browserIntent)
+                    startActivity(
+                        browserIntent
+                    )
 
                 } catch (_: Exception) {
 
@@ -866,14 +1174,17 @@ class MainActivity : ComponentActivity() {
         )
     }
 
-    // ------------------------------------------------------------
-    // RESTART
-    // ------------------------------------------------------------
+    // ============================================================
+    // RESTART WAKE WORD
+    // ============================================================
 
     private fun restartWakeWord() {
 
-        listeningForCommand = false
-        conversationMode = false
+        listeningForCommand =
+            false
+
+        conversationMode =
+            false
 
         handler.postDelayed(
             {
@@ -884,6 +1195,7 @@ class MainActivity : ComponentActivity() {
                     !speaking &&
                     !listeningForCommand
                 ) {
+
                     startWakeWordDetection()
                 }
 
@@ -892,9 +1204,9 @@ class MainActivity : ComponentActivity() {
         )
     }
 
-    // ------------------------------------------------------------
+    // ============================================================
     // PERMISSION
-    // ------------------------------------------------------------
+    // ============================================================
 
     override fun onRequestPermissionsResult(
         requestCode: Int,
@@ -909,7 +1221,8 @@ class MainActivity : ComponentActivity() {
         )
 
         if (
-            requestCode == MICROPHONE_REQUEST &&
+            requestCode ==
+            MICROPHONE_REQUEST &&
             grantResults.isNotEmpty() &&
             grantResults[0] ==
             PackageManager.PERMISSION_GRANTED
@@ -920,35 +1233,44 @@ class MainActivity : ComponentActivity() {
         } else {
 
             updateStatus(
-                "ATLAS\n\nMicrophone permission denied."
+                "ATLAS\n\n" +
+                "Microphone permission denied."
             )
         }
     }
 
-    // ------------------------------------------------------------
+    // ============================================================
     // CLEANUP
-    // ------------------------------------------------------------
+    // ============================================================
 
     override fun onDestroy() {
 
-        handler.removeCallbacksAndMessages(null)
+        handler.removeCallbacksAndMessages(
+            null
+        )
 
         detectionJob?.cancel()
 
         try {
+
             speechRecognizer?.cancel()
             speechRecognizer?.destroy()
+
         } catch (_: Exception) {
         }
 
         try {
+
             wakeWordEngine?.release()
+
         } catch (_: Exception) {
         }
 
         try {
+
             textToSpeech?.stop()
             textToSpeech?.shutdown()
+
         } catch (_: Exception) {
         }
 
@@ -959,194 +1281,6 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
     }
 
-    // ------------------------------------------------------------
-    // GLOWING ORB
-    // ------------------------------------------------------------
-
-    class AtlasOrbView(
-        context: android.content.Context
-    ) : View(context) {
-
-        companion object {
-
-            const val MODE_IDLE = 0
-            const val MODE_LISTENING = 1
-            const val MODE_SPEAKING = 2
-        }
-
-        private val paint =
-            Paint(Paint.ANTI_ALIAS_FLAG)
-
-        private var mode =
-            MODE_IDLE
-
-        private var audioLevel =
-            0f
-
-        private var animationTime =
-            0f
-
-        private val animationHandler =
-            Handler(
-                Looper.getMainLooper()
-            )
-
-        private val animationRunnable =
-            object : Runnable {
-
-                override fun run() {
-
-                    animationTime += 0.08f
-
-                    invalidate()
-
-                    animationHandler.postDelayed(
-                        this,
-                        30L
-                    )
-                }
-            }
-
-        init {
-
-            paint.isAntiAlias = true
-
-            animationHandler.post(
-                animationRunnable
-            )
-        }
-
-        fun setMode(
-            newMode: Int
-        ) {
-
-            mode = newMode
-            invalidate()
-        }
-
-        fun setAudioLevel(
-            level: Float
-        ) {
-
-            audioLevel =
-                level.coerceIn(
-                    -10f,
-                    10f
-                )
-
-            invalidate()
-        }
-
-        override fun onDraw(
-            canvas: Canvas
-        ) {
-
-            super.onDraw(canvas)
-
-            val centerX =
-                width / 2f
-
-            val centerY =
-                height / 2f
-
-            val baseRadius =
-                minOf(
-                    width,
-                    height
-                ) * 0.20f
-
-            val pulse =
-                when (mode) {
-
-                    MODE_LISTENING ->
-                        1f +
-                        0.08f *
-                        sin(
-                            animationTime * 2f
-                        )
-
-                    MODE_SPEAKING ->
-                        1f +
-                        0.18f *
-                        sin(
-                            animationTime * 5f
-                        )
-
-                    else ->
-                        1f +
-                        0.03f *
-                        sin(
-                            animationTime
-                        )
-                }
-
-            val audioPulse =
-                if (
-                    mode ==
-                    MODE_LISTENING
-                ) {
-
-                    (audioLevel + 10f) / 100f
-
-                } else {
-                    0f
-                }
-
-            val radius =
-                baseRadius *
-                pulse *
-                (1f + audioPulse)
-
-            val gradient =
-                RadialGradient(
-                    centerX,
-                    centerY,
-                    radius * 2.3f,
-                    intArrayOf(
-                        Color.WHITE,
-                        Color.CYAN,
-                        Color.BLUE,
-                        Color.TRANSPARENT
-                    ),
-                    floatArrayOf(
-                        0f,
-                        0.25f,
-                        0.55f,
-                        1f
-                    ),
-                    Shader.TileMode.CLAMP
-                )
-
-            paint.shader = gradient
-
-            canvas.drawCircle(
-                centerX,
-                centerY,
-                radius * 2.1f,
-                paint
-            )
-
-            paint.shader = null
-
-            paint.color =
-                Color.CYAN
-
-            canvas.drawCircle(
-                centerX,
-                centerY,
-                radius,
-                paint
-            )
-
-            paint.color =
-                Color.WHITE
-
-            canvas.drawCircle(
-                centerX,
-                centerY,
-                radius * 0.55f,
-                paint
-            )
-        }
-    }
-}
+    // ============================================================
+    // JARVIS GLOWING ORB
+    // ============================================================
