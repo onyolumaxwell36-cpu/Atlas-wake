@@ -12,6 +12,8 @@ import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
 import com.rementia.openwakeword.lib.WakeWordEngine
+import com.rementia.openwakeword.lib.model.DetectionMode
+import com.rementia.openwakeword.lib.model.WakeWordModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -20,18 +22,14 @@ import java.util.Locale
 class MainActivity : ComponentActivity() {
 
     private lateinit var status: TextView
-    private var engine: WakeWordEngine? = null
+    private var wakeWordEngine: WakeWordEngine? = null
     private var speechRecognizer: SpeechRecognizer? = null
-
-    companion object {
-        private const val MICROPHONE_REQUEST = 100
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         status = TextView(this)
-        status.text = "ATLAS Wake\n\nStarting..."
+        status.text = "ATLAS Wake\n\nRequesting microphone permission..."
         status.textSize = 20f
         status.setPadding(40, 100, 40, 40)
         setContentView(status)
@@ -42,50 +40,63 @@ class MainActivity : ComponentActivity() {
         ) {
             requestPermissions(
                 arrayOf(Manifest.permission.RECORD_AUDIO),
-                MICROPHONE_REQUEST
+                100
             )
         } else {
-            startWakeWord()
+            startWakeWordDetection()
         }
     }
 
-    private fun startWakeWord() {
+    private fun startWakeWordDetection() {
 
         status.text =
-            "ATLAS Wake\n\nListening for:\nHey Jarvis"
+            "ATLAS Wake\n\nListening for:\nHEY JARVIS"
 
-        /*
-         * The wake-word model already exists in the project.
-         * The engine requires the models parameter.
-         */
         val models = listOf(
-            "hey_jarvis_v0.1.onnx"
+            WakeWordModel(
+                name = "Hey Jarvis",
+                modelPath = "hey_jarvis_v0.1.onnx",
+                threshold = 0.5f
+            )
         )
 
-        engine = WakeWordEngine(
+        wakeWordEngine = WakeWordEngine(
             context = this,
-            models = models
+            models = models,
+            detectionMode = DetectionMode.SINGLE_BEST,
+            detectionCooldownMs = 2000L
         )
-
-        engine?.start()
 
         lifecycleScope.launch {
-            engine?.detections?.collect {
+            wakeWordEngine?.detections?.collect {
 
                 status.text =
-                    "ATLAS WAKE!\n\nWake word detected!\n\n" +
-                    "Listening for your command..."
+                    "ATLAS WAKE!\n\n" +
+                    "HEY JARVIS DETECTED!\n\n" +
+                    "Listening for command..."
 
-                startCommandListening()
+                listenForCommand()
             }
+        }
+
+        try {
+            wakeWordEngine?.start()
+        } catch (e: Exception) {
+            status.text =
+                "ATLAS Wake\n\n" +
+                "Could not start wake-word detection.\n\n" +
+                e.message
         }
     }
 
-    private fun startCommandListening() {
+    private fun listenForCommand() {
 
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
             status.text =
-                "ATLAS Wake\n\nSpeech recognition is not available."
+                "ATLAS Wake\n\n" +
+                "Speech recognition is not available."
+
+            restartWakeWord()
             return
         }
 
@@ -99,12 +110,14 @@ class MainActivity : ComponentActivity() {
 
                 override fun onReadyForSpeech(params: Bundle?) {
                     status.text =
-                        "ATLAS WAKE\n\nI'm listening..."
+                        "ATLAS WAKE\n\n" +
+                        "I'm listening..."
                 }
 
                 override fun onBeginningOfSpeech() {
                     status.text =
-                        "ATLAS WAKE\n\nHearing you..."
+                        "ATLAS WAKE\n\n" +
+                        "Hearing you..."
                 }
 
                 override fun onRmsChanged(rmsdB: Float) {}
@@ -113,12 +126,15 @@ class MainActivity : ComponentActivity() {
 
                 override fun onEndOfSpeech() {
                     status.text =
-                        "ATLAS WAKE\n\nProcessing..."
+                        "ATLAS WAKE\n\n" +
+                        "Processing..."
                 }
 
                 override fun onError(error: Int) {
                     status.text =
-                        "ATLAS WAKE\n\nI didn't understand that."
+                        "ATLAS WAKE\n\n" +
+                        "I didn't understand that."
+
                     restartWakeWord()
                 }
 
@@ -132,6 +148,7 @@ class MainActivity : ComponentActivity() {
                     val command =
                         matches?.firstOrNull()
                             ?.lowercase(Locale.getDefault())
+                            ?.trim()
                             ?: ""
 
                     handleCommand(command)
@@ -149,7 +166,9 @@ class MainActivity : ComponentActivity() {
         )
 
         val intent =
-            Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+            Intent(
+                RecognizerIntent.ACTION_RECOGNIZE_SPEECH
+            )
 
         intent.putExtra(
             RecognizerIntent.EXTRA_LANGUAGE_MODEL,
@@ -173,22 +192,23 @@ class MainActivity : ComponentActivity() {
 
         when {
 
-            command.contains("open whatsapp") ||
-            command.contains("open my whatsapp") -> {
+            command.contains("open whatsapp") -> {
 
                 status.text =
-                    "ATLAS WAKE\n\nOpening WhatsApp..."
+                    "ATLAS WAKE\n\n" +
+                    "Opening WhatsApp..."
 
-                val intent =
+                val whatsapp =
                     packageManager.getLaunchIntentForPackage(
                         "com.whatsapp"
                     )
 
-                if (intent != null) {
-                    startActivity(intent)
+                if (whatsapp != null) {
+                    startActivity(whatsapp)
                 } else {
                     status.text =
-                        "ATLAS WAKE\n\nWhatsApp is not installed."
+                        "ATLAS WAKE\n\n" +
+                        "WhatsApp is not installed."
                 }
 
                 restartWakeWord()
@@ -199,14 +219,15 @@ class MainActivity : ComponentActivity() {
             command.contains("tell me the time") ||
             command == "time" -> {
 
-                val time =
+                val currentTime =
                     SimpleDateFormat(
                         "h:mm a",
                         Locale.getDefault()
                     ).format(Date())
 
                 status.text =
-                    "ATLAS WAKE\n\nThe time is $time"
+                    "ATLAS WAKE\n\n" +
+                    "The time is $currentTime"
 
                 restartWakeWord()
             }
@@ -235,7 +256,7 @@ class MainActivity : ComponentActivity() {
 
                 status.text =
                     "ATLAS WAKE\n\n" +
-                    "I heard:\n$command\n\n" +
+                    "I heard:\n\n$command\n\n" +
                     "I don't know that command yet."
 
                 restartWakeWord()
@@ -246,23 +267,27 @@ class MainActivity : ComponentActivity() {
     private fun searchWeb(topic: String) {
 
         if (topic.isBlank()) {
+
             status.text =
-                "ATLAS WAKE\n\nTell me what to search for."
+                "ATLAS WAKE\n\n" +
+                "Tell me what to search for."
+
             restartWakeWord()
             return
         }
 
         status.text =
-            "ATLAS WAKE\n\nSearching for:\n$topic"
+            "ATLAS WAKE\n\n" +
+            "Searching for:\n$topic"
 
-        val url =
+        val searchUrl =
             "https://www.google.com/search?q=" +
                     Uri.encode(topic)
 
         startActivity(
             Intent(
                 Intent.ACTION_VIEW,
-                Uri.parse(url)
+                Uri.parse(searchUrl)
             )
         )
 
@@ -278,9 +303,16 @@ class MainActivity : ComponentActivity() {
         status.postDelayed({
 
             status.text =
-                "ATLAS Wake\n\nListening for:\nHey Jarvis"
+                "ATLAS Wake\n\n" +
+                "Listening for:\nHEY JARVIS"
 
-            engine?.start()
+            try {
+                wakeWordEngine?.start()
+            } catch (e: Exception) {
+                status.text =
+                    "ATLAS Wake\n\n" +
+                    "Could not restart wake-word detection."
+            }
 
         }, 1000)
     }
@@ -298,15 +330,16 @@ class MainActivity : ComponentActivity() {
         )
 
         if (
-            requestCode == MICROPHONE_REQUEST &&
+            requestCode == 100 &&
             grantResults.isNotEmpty() &&
             grantResults[0] ==
             PackageManager.PERMISSION_GRANTED
         ) {
-            startWakeWord()
+            startWakeWordDetection()
         } else {
             status.text =
-                "ATLAS Wake\n\nMicrophone permission denied."
+                "ATLAS Wake\n\n" +
+                "Microphone permission denied."
         }
     }
 
@@ -314,8 +347,8 @@ class MainActivity : ComponentActivity() {
 
         speechRecognizer?.destroy()
 
-        engine?.release()
-        engine = null
+        wakeWordEngine?.release()
+        wakeWordEngine = null
 
         super.onDestroy()
     }
