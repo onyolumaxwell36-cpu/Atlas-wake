@@ -992,19 +992,83 @@ class MainActivity : ComponentActivity() {
                 )
             }
 
+        
             // ----------------------------------------------------
-            // UNKNOWN
-            // ----------------------------------------------------
+// CONVERSATIONAL FALLBACK
+// ----------------------------------------------------
 
-            else -> {
+else -> {
 
-                speak(
-                    "I heard you say $command. " +
-                    "I don't have an answer for that yet, " +
-                    "but I'm ready for another command.",
-                    true
-                )
-            }
+    when {
+
+        command == "hello" ||
+        command == "hi" ||
+        command == "hey" ||
+        command.contains("hello atlas") ||
+        command.contains("hi atlas") -> {
+
+            speak(
+                "Hey. I'm here. What can I do for you?",
+                true
+            )
+        }
+
+        command.contains("how are you") ||
+        command.contains("how are you doing") -> {
+
+            speak(
+                "I'm doing great. Systems are online and I'm ready.",
+                true
+            )
+        }
+
+        command.contains("thank you") ||
+        command.contains("thanks") -> {
+
+            speak(
+                "You're welcome.",
+                true
+            )
+        }
+
+        command.contains("who are you") ||
+        command.contains("what are you") -> {
+
+            speak(
+                "I'm Atlas, your voice assistant. " +
+                "I'm still learning, but I'm getting smarter.",
+                true
+            )
+        }
+
+        command.contains("good morning") -> {
+
+            speak(
+                "Good morning. Atlas is online. " +
+                "What are we doing today?",
+                true
+            )
+        }
+
+        command.contains("good night") -> {
+
+            conversationMode = false
+
+            speak(
+                "Good night. I'll stand by until you need me."
+            )
+        }
+
+        else -> {
+
+            speak(
+                "I'm listening. I don't know how to do that yet, " +
+                "but we can teach me.",
+                true
+            )
+        }
+    }
+}
         }
     }
 
