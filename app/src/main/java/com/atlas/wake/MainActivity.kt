@@ -49,7 +49,10 @@ class MainActivity : ComponentActivity() {
 
     private var conversationMode = false
     private var commandRetryCount = 0
+private val httpClient = OkHttpClient()
 
+private val atlasApiUrl =
+"https://atlas-wake.vercel.app/api/chat"
     companion object {
         private const val MICROPHONE_REQUEST = 100
         private const val WAKE_THRESHOLD = 0.40f
@@ -325,7 +328,79 @@ class MainActivity : ComponentActivity() {
                                     )
 
                                 } else {
+private fun askAtlasApi(command: String) {
 
+updateStatus(
+    "ATLAS\n\nThinking...",
+    AtlasOrbView.MODE_SPEAKING
+)
+
+Thread {
+
+    try {
+
+        val json =
+            JSONObject().apply {
+                put("message", command)
+            }
+
+        val body =
+            json.toString()
+                .toRequestBody(
+                    "application/json"
+                        .toMediaType()
+                )
+
+        val request =
+            Request.Builder()
+                .url(atlasApiUrl)
+                .post(body)
+                .build()
+
+        val response =
+            httpClient.newCall(request)
+                .execute()
+
+        val responseText =
+            response.body?.string()
+                ?: ""
+
+        val reply =
+            try {
+
+                JSONObject(responseText)
+                    .optString(
+                        "reply",
+                        "I couldn't understand the response."
+                    )
+
+            } catch (_: Exception) {
+
+                "I couldn't understand the response."
+            }
+
+        runOnUiThread {
+
+            speak(
+                reply,
+                true
+            )
+        }
+
+    } catch (e: Exception) {
+
+        runOnUiThread {
+
+            speak(
+                "I couldn't reach my server.",
+                true
+            )
+        }
+    }
+
+}.start()
+
+}
                                     restartWakeWord()
                                 }
                             }
@@ -1061,11 +1136,7 @@ else -> {
 
         else -> {
 
-            speak(
-                "I'm listening. I don't know how to do that yet, " +
-                "but we can teach me.",
-                true
-            )
+            askAtlasApi(command)
         }
     }
 }
