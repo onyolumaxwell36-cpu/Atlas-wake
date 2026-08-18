@@ -327,80 +327,7 @@ private val atlasApiUrl =
                                         350L
                                     )
 
-                                } else {
-private fun askAtlasApi(command: String) {
-
-updateStatus(
-    "ATLAS\n\nThinking...",
-    AtlasOrbView.MODE_SPEAKING
-)
-
-Thread {
-
-    try {
-
-        val json =
-            JSONObject().apply {
-                put("message", command)
-            }
-
-        val body =
-            json.toString()
-                .toRequestBody(
-                    "application/json"
-                        .toMediaType()
-                )
-
-        val request =
-            Request.Builder()
-                .url(atlasApiUrl)
-                .post(body)
-                .build()
-
-        val response =
-            httpClient.newCall(request)
-                .execute()
-
-        val responseText =
-            response.body?.string()
-                ?: ""
-
-        val reply =
-            try {
-
-                JSONObject(responseText)
-                    .optString(
-                        "reply",
-                        "I couldn't understand the response."
-                    )
-
-            } catch (_: Exception) {
-
-                "I couldn't understand the response."
-            }
-
-        runOnUiThread {
-
-            speak(
-                reply,
-                true
-            )
-        }
-
-    } catch (e: Exception) {
-
-        runOnUiThread {
-
-            speak(
-                "I couldn't reach my server.",
-                true
-            )
-        }
-    }
-
-}.start()
-
-}
+                                } else}
                                     restartWakeWord()
                                 }
                             }
@@ -1247,6 +1174,97 @@ else -> {
         )
     }
 
+private fun askAtlasApi(command: String) {
+
+updateStatus(
+    "ATLAS\n\nThinking...",
+    AtlasOrbView.MODE_SPEAKING
+)
+
+Thread {
+
+    try {
+
+        val json =
+            JSONObject().apply {
+                put("message", command)
+            }
+
+        val body =
+            json.toString()
+                .toRequestBody(
+                    "application/json"
+                        .toMediaType()
+                )
+
+        val request =
+            Request.Builder()
+                .url(atlasApiUrl)
+                .post(body)
+                .build()
+
+        val response =
+            httpClient.newCall(request)
+                .execute()
+
+        val responseText =
+            response.body?.string()
+                ?: ""
+
+        val reply =
+            try {
+
+                JSONObject(responseText)
+                    .optString(
+                        "reply",
+                        "I couldn't understand the response."
+                    )
+
+            } catch (_: Exception) {
+
+                "I couldn't understand the response."
+            }
+
+        runOnUiThread {
+
+            speak(
+                reply,
+                true
+            )
+        }
+
+    } catch (e: Exception) {
+
+        runOnUiThread {
+
+            speak(
+                "I couldn't reach my server.",
+                true
+            )
+        }
+    }
+
+}.start()
+
+}
+                                    restartWakeWord()
+                                }
+                            }
+                        }
+
+                        override fun onError(
+                            utteranceId: String?
+                        ) {
+
+                            runOnUiThread {
+
+                                speaking = false
+
+                                if (
+                                    conversationMode
+                                ) {
+
+                                    listenForCommand()
     // ============================================================
     // WEB SEARCH
     // ============================================================
