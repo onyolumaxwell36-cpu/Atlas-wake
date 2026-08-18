@@ -1,4 +1,4 @@
-plugins {
+I'mplugins {
 id 'com.android.application'
 id 'org.jetbrains.kotlin.android'
 }
@@ -27,13 +27,14 @@ kotlinOptions {
 }
 
 dependencies {
-implementation("xyz.rementia:openwakeword:0.1.5")
 
-implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
-implementation("androidx.activity:activity-ktx:1.9.2")
+    implementation("xyz.rementia:openwakeword:0.1.5")
 
-implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
+    implementation("androidx.activity:activity-ktx:1.9.2")
 
-implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("org.json:json:20240303")
 }
