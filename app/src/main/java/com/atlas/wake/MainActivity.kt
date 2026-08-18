@@ -1194,7 +1194,7 @@ else -> {
         ) {
 
             speak(
-                "Sure. Opening WhatsApp."
+                "Sure.Opening WhatsApp."
             )
 
             handler.postDelayed(
