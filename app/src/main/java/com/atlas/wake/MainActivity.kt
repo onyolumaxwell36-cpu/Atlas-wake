@@ -29,7 +29,11 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.cos
 import kotlin.math.sin
-
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.MediaType.Companion.toMediaType
+import org.json.JSONObject
 class MainActivity : ComponentActivity() {
 
     private lateinit var status: TextView
@@ -301,33 +305,36 @@ private val atlasApiUrl =
                         }
 
                         override fun onDone(
-                            utteranceId: String?
-                        ) {
+    utteranceId: String?
+) {
 
-                            runOnUiThread {
+    runOnUiThread {
 
-                                speaking = false
+        speaking = false
 
-                                if (
-                                    conversationMode
-                                ) {
+        if (conversationMode) {
 
-                                    handler.postDelayed(
-                                        {
+            handler.postDelayed(
+                {
 
-                                            if (
-                                                !isFinishing &&
-                                                !isDestroyed
-                                            ) {
+                    if (
+                        !isFinishing &&
+                        !isDestroyed
+                    ) {
 
-                                                listenForCommand()
-                                            }
+                        listenForCommand()
+                    }
 
-                                        },
-                                        350L
-                                    )
+                },
+                350L
+            )
 
-                                } else}
+        } else {
+
+            restartWakeWord()
+        }
+    }
+}
                                     restartWakeWord()
                                 }
                             }
