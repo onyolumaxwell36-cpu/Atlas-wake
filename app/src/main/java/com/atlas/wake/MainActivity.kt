@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
@@ -11,13 +12,20 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.core.app.ActivityCompat
+import java.net.HttpURLConnection
+import java.net.URL
 import java.util.Locale
+import kotlin.concurrent.thread
+import org.json.JSONObject
 
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private lateinit var statusText: TextView
     private lateinit var speechRecognizer: SpeechRecognizer
     private lateinit var textToSpeech: TextToSpeech
+
+    private val atlasApiUrl =
+        "https://atlas-wake.vercel.app/api/chat"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -115,10 +123,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             return
         }
 
-        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
+        speechRecognizer =
+            SpeechRecognizer.createSpeechRecognizer(this)
 
         speechRecognizer.setRecognitionListener(
-            object : android.speech.RecognitionListener {
+            object : RecognitionListener {
 
                 override fun onReadyForSpeech(params: Bundle?) {
                     statusText.text = "LISTENING..."
@@ -147,7 +156,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                             SpeechRecognizer.RESULTS_RECOGNITION
                         )
 
-                    val command = matches?.firstOrNull()?.lowercase(Locale.getDefault())
+                    val command =
+                        matches?.firstOrNull()
 
                     if (!command.isNullOrBlank()) {
                         handleCommand(command)
@@ -174,129 +184,100 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             setupSpeechRecognition()
         }
 
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(
-                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
-            )
+        val intent =
+            Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
 
-            putExtra(
-                RecognizerIntent.EXTRA_LANGUAGE,
-                Locale.getDefault()
-            )
+                putExtra(
+                    RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                    RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+                )
 
-            putExtra(
-                RecognizerIntent.EXTRA_PARTIAL_RESULTS,
-                false
-            )
-        }
+                putExtra(
+                    RecognizerIntent.EXTRA_LANGUAGE,
+                    Locale.US
+                )
+
+                putExtra(
+                    RecognizerIntent.EXTRA_PARTIAL_RESULTS,
+                    false
+                )
+            }
 
         speechRecognizer.startListening(intent)
     }
 
     private fun handleCommand(command: String) {
 
+        val lowerCommand =
+            command.lowercase(Locale.getDefault())
+
         when {
 
-            command.contains("hey atlas") -> {
-                statusText.text = "ATLAS / AWAKE"
+            lowerCommand.contains("hey atlas") -> {
                 speak("Yes, I'm listening.")
             }
 
-            command.contains("hello") ||
-            command.contains("hi atlas") -> {
+            lowerCommand.contains("hello") ||
+            lowerCommand.contains("hi atlas") -> {
                 speak("Hello. I am Atlas. How can I help you?")
             }
 
-            command.contains("what is your name") -> {
+            lowerCommand.contains("what is your name") -> {
                 speak("My name is Atlas.")
             }
 
-            command.contains("who are you") -> {
-                speak("I am Atlas, your artificial intelligence assistant.")
-            }
-
-            command.contains("time") -> {
-                val time = java.text.SimpleDateFormat(
-                    "h:mm a",
-                    Locale.getDefault()
-                ).format(java.util.Date())
-
-                speak("The time is $time.")
+            lowerCommand.contains("who are you") -> {
+                speak(
+                    "I am Atlas, your artificial intelligence assistant."
+                )
             }
 
             else -> {
-                speak("I heard you say $command.")
+                askAtlas(command)
             }
         }
     }
 
-    private fun speak(message: String) {
+    private fun askAtlas(message: String) {
 
-        statusText.text = "ATLAS / SPEAKING"
+        statusText.text = "ATLAS / THINKING..."
 
-        textToSpeech.speak(
-            message,
-            TextToSpeech.QUEUE_FLUSH,
-            null,
-            "ATLAS_RESPONSE"
-        )
-    }
+        thread {
 
-    override fun onInit(status: Int) {
+            try {
 
-        if (status == TextToSpeech.SUCCESS) {
+                val url = URL(atlasApiUrl)
 
-            textToSpeech.language = Locale.US
+                val connection =
+                    url.openConnection() as HttpURLConnection
 
-            textToSpeech.setSpeechRate(0.95f)
-            textToSpeech.setPitch(1.0f)
+                connection.requestMethod = "POST"
+                connection.setRequestProperty(
+                    "Content-Type",
+                    "application/json"
+                )
+                connection.setRequestProperty(
+                    "Accept",
+                    "application/json"
+                )
 
-            statusText.text = "ATLAS / SYSTEM READY"
+                connection.doOutput = true
+                connection.connectTimeout = 15000
+                connection.readTimeout = 30000
 
-            speak("Atlas online.")
+                val requestBody =
+                    JSONObject().apply {
+                        put("message", message)
+                    }.toString()
 
-        } else {
-            statusText.text = "TEXT TO SPEECH ERROR"
-        }
-    }
+                connection.outputStream.use { output ->
+                    output.write(
+                        requestBody.toByteArray(Charsets.UTF_8)
+                    )
+                }
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<String>,
-        grantResults: IntArray
-    ) {
+                val responseCode =
+                    connection.responseCode
 
-        super.onRequestPermissionsResult(
-            requestCode,
-            permissions,
-            grantResults
-        )
-
-        if (requestCode == 100) {
-
-            if (
-                grantResults.isNotEmpty() &&
-                grantResults[0] == PackageManager.PERMISSION_GRANTED
-            ) {
-                setupSpeechRecognition()
-            } else {
-                statusText.text = "MICROPHONE PERMISSION DENIED"
-            }
-        }
-    }
-
-    override fun onDestroy() {
-
-        if (::speechRecognizer.isInitialized) {
-            speechRecognizer.destroy()
-        }
-
-        if (::textToSpeech.isInitialized) {
-            textToSpeech.stop()
-            textToSpeech.shutdown()
-        }
-
-        super.onDestroy()
-    }
-}
+                val responseText =
+                    if (response
