@@ -1,121 +1,99 @@
 package com.atlas.wake
 
-import android.graphics.Color
-import android.graphics.Typeface
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
-import android.view.Gravity
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import android.speech.tts.TextToSpeech
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
+import androidx.core.app.ActivityCompat
+import java.util.Locale
 
-class MainActivity : ComponentActivity() {
+class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
-    private lateinit var status: TextView
+    private lateinit var statusText: TextView
+    private lateinit var speechRecognizer: SpeechRecognizer
+    private lateinit var textToSpeech: TextToSpeech
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         createInterface()
+
+        textToSpeech = TextToSpeech(this, this)
+
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.RECORD_AUDIO),
+                100
+            )
+        } else {
+            setupSpeechRecognition()
+        }
     }
 
     private fun createInterface() {
 
-        val root = LinearLayout(this)
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = android.view.Gravity.CENTER
+            setBackgroundColor(android.graphics.Color.BLACK)
+            setPadding(30, 30, 30, 30)
+        }
 
-        root.orientation = LinearLayout.VERTICAL
-        root.gravity = Gravity.CENTER
+        val title = TextView(this).apply {
+            text = "A T L A S"
+            textSize = 34f
+            setTextColor(android.graphics.Color.CYAN)
+            gravity = android.view.Gravity.CENTER
+        }
 
-        root.setBackgroundColor(Color.BLACK)
+        val subtitle = TextView(this).apply {
+            text = "ARTIFICIAL INTELLIGENCE ASSISTANT"
+            textSize = 13f
+            setTextColor(android.graphics.Color.LTGRAY)
+            gravity = android.view.Gravity.CENTER
+        }
 
-        root.setPadding(
-            24,
-            40,
-            24,
-            40
-        )
+        val core = TextView(this).apply {
+            text = "●"
+            textSize = 80f
+            setTextColor(android.graphics.Color.CYAN)
+            gravity = android.view.Gravity.CENTER
+        }
 
-        // -----------------------------
-        // ATLAS TITLE
-        // -----------------------------
+        statusText = TextView(this).apply {
+            text = "ATLAS / SYSTEM READY"
+            textSize = 16f
+            setTextColor(android.graphics.Color.WHITE)
+            gravity = android.view.Gravity.CENTER
+        }
 
-        val title = TextView(this)
+        val wakeWord = TextView(this).apply {
+            text = "\nWAKE WORD\nHEY ATLAS"
+            textSize = 16f
+            setTextColor(android.graphics.Color.CYAN)
+            gravity = android.view.Gravity.CENTER
+        }
 
-        title.text = "A T L A S"
-        title.textSize = 30f
-        title.gravity = Gravity.CENTER
+        val footer = TextView(this).apply {
+            text = "\nATLAS ONLINE • VOICE AI"
+            textSize = 12f
+            setTextColor(android.graphics.Color.GRAY)
+            gravity = android.view.Gravity.CENTER
+        }
 
-        title.setTextColor(
-            Color.CYAN
-        )
+        layout.addView(title)
+        layout.addView(subtitle)
 
-        title.setTypeface(
-            Typeface.create(
-                "sans-serif",
-                Typeface.BOLD
-            )
-        )
-
-        title.letterSpacing = 0.18f
-
-        root.addView(
-            title,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        )
-
-        // -----------------------------
-        // SUBTITLE
-        // -----------------------------
-
-        val subtitle = TextView(this)
-
-        subtitle.text =
-            "ARTIFICIAL INTELLIGENCE ASSISTANT"
-
-        subtitle.textSize = 10f
-        subtitle.gravity = Gravity.CENTER
-
-        subtitle.setTextColor(
-            Color.rgb(70, 180, 220)
-        )
-
-        subtitle.letterSpacing = 0.12f
-
-        val subtitleParams =
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-
-        subtitleParams.setMargins(
-            0,
-            8,
-            0,
-            40
-        )
-
-        root.addView(
-            subtitle,
-            subtitleParams
-        )
-
-        // -----------------------------
-        // ATLAS CORE
-        // -----------------------------
-
-        val core = TextView(this)
-
-        core.text = "●"
-        core.textSize = 100f
-        core.gravity = Gravity.CENTER
-
-        core.setTextColor(
-            Color.CYAN
-        )
-
-        root.addView(
+        layout.addView(
             core,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -123,101 +101,202 @@ class MainActivity : ComponentActivity() {
             )
         )
 
-        // -----------------------------
-        // STATUS
-        // -----------------------------
+        layout.addView(statusText)
+        layout.addView(wakeWord)
+        layout.addView(footer)
 
-        status = TextView(this)
+        setContentView(layout)
+    }
 
-        status.text =
-            "ATLAS\n\nSYSTEM READY"
+    private fun setupSpeechRecognition() {
 
-        status.textSize = 19f
-        status.gravity = Gravity.CENTER
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            statusText.text = "SPEECH RECOGNITION UNAVAILABLE"
+            return
+        }
 
-        status.setTextColor(
-            Color.CYAN
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
+
+        speechRecognizer.setRecognitionListener(
+            object : android.speech.RecognitionListener {
+
+                override fun onReadyForSpeech(params: Bundle?) {
+                    statusText.text = "LISTENING..."
+                }
+
+                override fun onBeginningOfSpeech() {
+                    statusText.text = "HEARING YOU..."
+                }
+
+                override fun onRmsChanged(rmsdB: Float) {}
+
+                override fun onBufferReceived(buffer: ByteArray?) {}
+
+                override fun onEndOfSpeech() {
+                    statusText.text = "PROCESSING..."
+                }
+
+                override fun onError(error: Int) {
+                    statusText.text = "ATLAS / READY"
+                }
+
+                override fun onResults(results: Bundle?) {
+
+                    val matches =
+                        results?.getStringArrayList(
+                            SpeechRecognizer.RESULTS_RECOGNITION
+                        )
+
+                    val command = matches?.firstOrNull()?.lowercase(Locale.getDefault())
+
+                    if (!command.isNullOrBlank()) {
+                        handleCommand(command)
+                    } else {
+                        statusText.text = "ATLAS / READY"
+                    }
+                }
+
+                override fun onPartialResults(
+                    partialResults: Bundle?
+                ) {}
+
+                override fun onEvent(
+                    eventType: Int,
+                    params: Bundle?
+                ) {}
+            }
         )
+    }
 
-        status.setPadding(
-            20,
-            20,
-            20,
-            20
-        )
+    private fun listen() {
 
-        root.addView(
-            status,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
+        if (!::speechRecognizer.isInitialized) {
+            setupSpeechRecognition()
+        }
+
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(
+                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
             )
-        )
 
-        // -----------------------------
-        // WAKE WORD
-        // -----------------------------
-
-        val wakeWord = TextView(this)
-
-        wakeWord.text =
-            "WAKE WORD\n\nHEY ATLAS"
-
-        wakeWord.textSize = 14f
-        wakeWord.gravity = Gravity.CENTER
-
-        wakeWord.setTextColor(
-            Color.rgb(70, 180, 220)
-        )
-
-        wakeWord.setTypeface(
-            Typeface.create(
-                "sans-serif",
-                Typeface.BOLD
+            putExtra(
+                RecognizerIntent.EXTRA_LANGUAGE,
+                Locale.getDefault()
             )
-        )
 
-        wakeWord.setPadding(
-            20,
-            30,
-            20,
-            20
-        )
-
-        root.addView(
-            wakeWord,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
+            putExtra(
+                RecognizerIntent.EXTRA_PARTIAL_RESULTS,
+                false
             )
+        }
+
+        speechRecognizer.startListening(intent)
+    }
+
+    private fun handleCommand(command: String) {
+
+        when {
+
+            command.contains("hey atlas") -> {
+                statusText.text = "ATLAS / AWAKE"
+                speak("Yes, I'm listening.")
+            }
+
+            command.contains("hello") ||
+            command.contains("hi atlas") -> {
+                speak("Hello. I am Atlas. How can I help you?")
+            }
+
+            command.contains("what is your name") -> {
+                speak("My name is Atlas.")
+            }
+
+            command.contains("who are you") -> {
+                speak("I am Atlas, your artificial intelligence assistant.")
+            }
+
+            command.contains("time") -> {
+                val time = java.text.SimpleDateFormat(
+                    "h:mm a",
+                    Locale.getDefault()
+                ).format(java.util.Date())
+
+                speak("The time is $time.")
+            }
+
+            else -> {
+                speak("I heard you say $command.")
+            }
+        }
+    }
+
+    private fun speak(message: String) {
+
+        statusText.text = "ATLAS / SPEAKING"
+
+        textToSpeech.speak(
+            message,
+            TextToSpeech.QUEUE_FLUSH,
+            null,
+            "ATLAS_RESPONSE"
+        )
+    }
+
+    override fun onInit(status: Int) {
+
+        if (status == TextToSpeech.SUCCESS) {
+
+            textToSpeech.language = Locale.US
+
+            textToSpeech.setSpeechRate(0.95f)
+            textToSpeech.setPitch(1.0f)
+
+            statusText.text = "ATLAS / SYSTEM READY"
+
+            speak("Atlas online.")
+
+        } else {
+            statusText.text = "TEXT TO SPEECH ERROR"
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>,
+        grantResults: IntArray
+    ) {
+
+        super.onRequestPermissionsResult(
+            requestCode,
+            permissions,
+            grantResults
         )
 
-        // -----------------------------
-        // FOOTER
-        // -----------------------------
+        if (requestCode == 100) {
 
-        val footer = TextView(this)
+            if (
+                grantResults.isNotEmpty() &&
+                grantResults[0] == PackageManager.PERMISSION_GRANTED
+            ) {
+                setupSpeechRecognition()
+            } else {
+                statusText.text = "MICROPHONE PERMISSION DENIED"
+            }
+        }
+    }
 
-        footer.text =
-            "ATLAS ONLINE • VOICE AI"
+    override fun onDestroy() {
 
-        footer.textSize = 9f
-        footer.gravity = Gravity.CENTER
+        if (::speechRecognizer.isInitialized) {
+            speechRecognizer.destroy()
+        }
 
-        footer.setTextColor(
-            Color.rgb(35, 110, 140)
-        )
+        if (::textToSpeech.isInitialized) {
+            textToSpeech.stop()
+            textToSpeech.shutdown()
+        }
 
-        footer.letterSpacing = 0.08f
-
-        root.addView(
-            footer,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        )
-
-        setContentView(root)
+        super.onDestroy()
     }
 }
