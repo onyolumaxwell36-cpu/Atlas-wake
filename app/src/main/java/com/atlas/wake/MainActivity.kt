@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.*
 import android.net.Uri
 import android.os.BatteryManager
 import android.os.Bundle
@@ -15,19 +14,17 @@ import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.view.Gravity
-import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.core.app.ActivityCompat
+import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.concurrent.thread
-import kotlin.math.sin
-import org.json.JSONObject
 
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
@@ -94,60 +91,62 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private fun createInterface() {
 
-        val layout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setBackgroundColor(Color.BLACK)
-            setPadding(20, 20, 20, 20)
-        }
+        val layout = LinearLayout(this)
 
-        val title = TextView(this).apply {
-            text = "ATLAS"
-            textSize = 32f
-            setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER
-            typeface = Typeface.DEFAULT_BOLD
-        }
+        layout.orientation = LinearLayout.VERTICAL
+        layout.gravity = Gravity.CENTER
+        layout.setBackgroundColor(android.graphics.Color.BLACK)
+        layout.setPadding(20, 20, 20, 20)
 
-        val subtitle = TextView(this).apply {
-            text = "ARTIFICIAL INTELLIGENCE"
-            textSize = 12f
-            setTextColor(Color.GRAY)
-            gravity = Gravity.CENTER
-        }
+        val title = TextView(this)
+
+        title.text = "ATLAS"
+        title.textSize = 32f
+        title.setTextColor(android.graphics.Color.WHITE)
+        title.gravity = Gravity.CENTER
+        title.setTypeface(null, android.graphics.Typeface.BOLD)
+
+        val subtitle = TextView(this)
+
+        subtitle.text = "ARTIFICIAL INTELLIGENCE"
+        subtitle.textSize = 12f
+        subtitle.setTextColor(android.graphics.Color.GRAY)
+        subtitle.gravity = Gravity.CENTER
 
         orbView = AtlasOrbView(this)
 
-        statusText = TextView(this).apply {
-            text = "ATLAS / STARTING..."
-            textSize = 16f
-            setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER
-            typeface = Typeface.DEFAULT_BOLD
-        }
+        statusText = TextView(this)
 
-        responseText = TextView(this).apply {
-            text = ""
-            textSize = 18f
-            setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER
-            setPadding(20, 20, 20, 20)
-        }
+        statusText.text = "ATLAS / STARTING..."
+        statusText.textSize = 16f
+        statusText.setTextColor(android.graphics.Color.WHITE)
+        statusText.gravity = Gravity.CENTER
+        statusText.setTypeface(null, android.graphics.Typeface.BOLD)
 
-        val wakeWord = TextView(this).apply {
-            text = "HEY ATLAS"
-            textSize = 15f
-            setTextColor(Color.rgb(255, 120, 20))
-            gravity = Gravity.CENTER
-            typeface = Typeface.DEFAULT_BOLD
-        }
+        responseText = TextView(this)
 
-        val footer = TextView(this).apply {
-            text = "ATLAS AI • VOICE ASSISTANT"
-            textSize = 11f
-            setTextColor(Color.GRAY)
-            gravity = Gravity.CENTER
-        }
+        responseText.text = ""
+        responseText.textSize = 18f
+        responseText.setTextColor(android.graphics.Color.WHITE)
+        responseText.gravity = Gravity.CENTER
+        responseText.setPadding(20, 20, 20, 20)
+
+        val wakeWord = TextView(this)
+
+        wakeWord.text = "HEY ATLAS"
+        wakeWord.textSize = 15f
+        wakeWord.setTextColor(
+            android.graphics.Color.rgb(255, 120, 20)
+        )
+        wakeWord.gravity = Gravity.CENTER
+        wakeWord.setTypeface(null, android.graphics.Typeface.BOLD)
+
+        val footer = TextView(this)
+
+        footer.text = "ATLAS AI • VOICE ASSISTANT"
+        footer.textSize = 11f
+        footer.setTextColor(android.graphics.Color.GRAY)
+        footer.gravity = Gravity.CENTER
 
         layout.addView(title)
 
@@ -203,7 +202,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         speechRecognizer.setRecognitionListener(
             object : RecognitionListener {
 
-                override fun onReadyForSpeech(params: Bundle?) {
+                override fun onReadyForSpeech(
+                    params: Bundle?
+                ) {
                     runOnUiThread {
                         statusText.text = "ATLAS / LISTENING"
                     }
@@ -215,10 +216,14 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     }
                 }
 
-                override fun onRmsChanged(rmsdB: Float) {
+                override fun onRmsChanged(
+                    rmsdB: Float
+                ) {
                 }
 
-                override fun onBufferReceived(buffer: ByteArray?) {
+                override fun onBufferReceived(
+                    buffer: ByteArray?
+                ) {
                 }
 
                 override fun onEndOfSpeech() {
@@ -227,11 +232,15 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     }
                 }
 
-                override fun onError(error: Int) {
+                override fun onError(
+                    error: Int
+                ) {
                     restartListening()
                 }
 
-                override fun onResults(results: Bundle?) {
+                override fun onResults(
+                    results: Bundle?
+                ) {
 
                     val matches =
                         results?.getStringArrayList(
@@ -303,28 +312,27 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         val intent =
             Intent(
                 RecognizerIntent.ACTION_RECOGNIZE_SPEECH
-            ).apply {
+            )
 
-                putExtra(
-                    RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                    RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
-                )
+        intent.putExtra(
+            RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+            RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+        )
 
-                putExtra(
-                    RecognizerIntent.EXTRA_LANGUAGE,
-                    Locale.US
-                )
+        intent.putExtra(
+            RecognizerIntent.EXTRA_LANGUAGE,
+            Locale.US
+        )
 
-                putExtra(
-                    RecognizerIntent.EXTRA_PARTIAL_RESULTS,
-                    false
-                )
+        intent.putExtra(
+            RecognizerIntent.EXTRA_PARTIAL_RESULTS,
+            false
+        )
 
-                putExtra(
-                    RecognizerIntent.EXTRA_MAX_RESULTS,
-                    3
-                )
-            }
+        intent.putExtra(
+            RecognizerIntent.EXTRA_MAX_RESULTS,
+            3
+        )
 
         speechRecognizer.startListening(intent)
     }
@@ -333,11 +341,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         originalCommand: String
     ) {
 
-        val original =
-            originalCommand.trim()
-
         var command =
-            original
+            originalCommand.trim()
 
         val lower =
             command.lowercase(Locale.getDefault())
@@ -473,9 +478,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             return
         }
 
-        if (
-            clean == "open google"
-        ) {
+        if (clean == "open google") {
 
             openWebsite(
                 "https://www.google.com"
@@ -502,9 +505,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             return
         }
 
-        if (
-            clean.startsWith("google ")
-        ) {
+        if (clean.startsWith("google ")) {
 
             val query =
                 command.substringAfter(
@@ -524,9 +525,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             try {
 
                 startActivity(
-                    Intent(
-                        Settings.ACTION_SETTINGS
-                    )
+                    Intent(Settings.ACTION_SETTINGS)
                 )
 
                 speak(
@@ -811,7 +810,6 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         if (status != TextToSpeech.SUCCESS) {
 
             ttsReady = false
-
             statusText.text =
                 "ATLAS / TTS ERROR"
 
@@ -846,4 +844,57 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 "ATLAS online."
             )
 
-        } e
+        } else {
+
+            statusText.text =
+                "ATLAS / TTS LANGUAGE ERROR"
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>,
+        grantResults: IntArray
+    ) {
+
+        super.onRequestPermissionsResult(
+            requestCode,
+            permissions,
+            grantResults
+        )
+
+        if (requestCode == 100) {
+
+            if (
+                grantResults.isNotEmpty() &&
+                grantResults[0] ==
+                PackageManager.PERMISSION_GRANTED
+            ) {
+
+                setupSpeechRecognition()
+
+            } else {
+
+                statusText.text =
+                    "ATLAS / MICROPHONE DENIED"
+            }
+        }
+    }
+
+    override fun onDestroy() {
+
+        if (::speechRecognizer.isInitialized) {
+
+            speechRecognizer.cancel()
+            speechRecognizer.destroy()
+        }
+
+        if (::textToSpeech.isInitialized) {
+
+            textToSpeech.stop()
+            textToSpeech.shutdown()
+        }
+
+        super.onDestroy()
+    }
+}
