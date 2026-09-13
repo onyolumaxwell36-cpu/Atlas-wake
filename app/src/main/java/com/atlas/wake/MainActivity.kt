@@ -18,6 +18,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.core.app.ActivityCompat
+import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -37,8 +38,20 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private var ttsReady = false
     private var restartingListening = false
 
+    /*
+     * ATLAS conversation memory.
+     *
+     * We keep the most recent 20 messages.
+     */
+    private val conversation = mutableListOf<ChatMessage>()
+
     private val atlasApiUrl =
         "https://atlas-wake.vercel.app/api/chat"
+
+    data class ChatMessage(
+        val role: String,
+        val content: String
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -50,25 +63,39 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         textToSpeech.setOnUtteranceProgressListener(
             object : UtteranceProgressListener() {
 
-                override fun onStart(utteranceId: String?) {
+                override fun onStart(
+                    utteranceId: String?
+                ) {
                     runOnUiThread {
-                        statusText.text = "ATLAS / SPEAKING"
+                        statusText.text =
+                            "ATLAS / SPEAKING"
+
                         orbView.setSpeaking(true)
                     }
                 }
 
-                override fun onDone(utteranceId: String?) {
+                override fun onDone(
+                    utteranceId: String?
+                ) {
                     runOnUiThread {
                         orbView.setSpeaking(false)
-                        statusText.text = "ATLAS / LISTENING"
+
+                        statusText.text =
+                            "ATLAS / LISTENING"
+
                         restartListening()
                     }
                 }
 
-                override fun onError(utteranceId: String?) {
+                override fun onError(
+                    utteranceId: String?
+                ) {
                     runOnUiThread {
                         orbView.setSpeaking(false)
-                        statusText.text = "ATLAS / TTS ERROR"
+
+                        statusText.text =
+                            "ATLAS / TTS ERROR"
+
                         restartListening()
                     }
                 }
@@ -76,12 +103,15 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         )
 
         if (
-            checkSelfPermission(Manifest.permission.RECORD_AUDIO)
-            != PackageManager.PERMISSION_GRANTED
+            checkSelfPermission(
+                Manifest.permission.RECORD_AUDIO
+            ) != PackageManager.PERMISSION_GRANTED
         ) {
             ActivityCompat.requestPermissions(
                 this,
-                arrayOf(Manifest.permission.RECORD_AUDIO),
+                arrayOf(
+                    Manifest.permission.RECORD_AUDIO
+                ),
                 100
             )
         } else {
@@ -93,60 +123,139 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
         val layout = LinearLayout(this)
 
-        layout.orientation = LinearLayout.VERTICAL
-        layout.gravity = Gravity.CENTER
-        layout.setBackgroundColor(android.graphics.Color.BLACK)
-        layout.setPadding(20, 20, 20, 20)
+        layout.orientation =
+            LinearLayout.VERTICAL
+
+        layout.gravity =
+            Gravity.CENTER
+
+        layout.setBackgroundColor(
+            android.graphics.Color.BLACK
+        )
+
+        layout.setPadding(
+            20,
+            20,
+            20,
+            20
+        )
 
         val title = TextView(this)
 
         title.text = "ATLAS"
+
         title.textSize = 32f
-        title.setTextColor(android.graphics.Color.WHITE)
-        title.gravity = Gravity.CENTER
-        title.setTypeface(null, android.graphics.Typeface.BOLD)
+
+        title.setTextColor(
+            android.graphics.Color.WHITE
+        )
+
+        title.gravity =
+            Gravity.CENTER
+
+        title.setTypeface(
+            null,
+            android.graphics.Typeface.BOLD
+        )
 
         val subtitle = TextView(this)
 
-        subtitle.text = "ARTIFICIAL INTELLIGENCE"
+        subtitle.text =
+            "ARTIFICIAL INTELLIGENCE"
+
         subtitle.textSize = 12f
-        subtitle.setTextColor(android.graphics.Color.GRAY)
-        subtitle.gravity = Gravity.CENTER
 
-        orbView = AtlasOrbView(this)
+        subtitle.setTextColor(
+            android.graphics.Color.GRAY
+        )
 
-        statusText = TextView(this)
+        subtitle.gravity =
+            Gravity.CENTER
 
-        statusText.text = "ATLAS / STARTING..."
-        statusText.textSize = 16f
-        statusText.setTextColor(android.graphics.Color.WHITE)
-        statusText.gravity = Gravity.CENTER
-        statusText.setTypeface(null, android.graphics.Typeface.BOLD)
+        orbView =
+            AtlasOrbView(this)
 
-        responseText = TextView(this)
+        statusText =
+            TextView(this)
+
+        statusText.text =
+            "ATLAS / STARTING..."
+
+        statusText.textSize =
+            16f
+
+        statusText.setTextColor(
+            android.graphics.Color.WHITE
+        )
+
+        statusText.gravity =
+            Gravity.CENTER
+
+        statusText.setTypeface(
+            null,
+            android.graphics.Typeface.BOLD
+        )
+
+        responseText =
+            TextView(this)
 
         responseText.text = ""
-        responseText.textSize = 18f
-        responseText.setTextColor(android.graphics.Color.WHITE)
-        responseText.gravity = Gravity.CENTER
-        responseText.setPadding(20, 20, 20, 20)
+
+        responseText.textSize =
+            18f
+
+        responseText.setTextColor(
+            android.graphics.Color.WHITE
+        )
+
+        responseText.gravity =
+            Gravity.CENTER
+
+        responseText.setPadding(
+            20,
+            20,
+            20,
+            20
+        )
 
         val wakeWord = TextView(this)
 
-        wakeWord.text = "HEY ATLAS"
-        wakeWord.textSize = 15f
+        wakeWord.text =
+            "HEY ATLAS"
+
+        wakeWord.textSize =
+            15f
+
         wakeWord.setTextColor(
-            android.graphics.Color.rgb(255, 120, 20)
+            android.graphics.Color.rgb(
+                255,
+                120,
+                20
+            )
         )
-        wakeWord.gravity = Gravity.CENTER
-        wakeWord.setTypeface(null, android.graphics.Typeface.BOLD)
+
+        wakeWord.gravity =
+            Gravity.CENTER
+
+        wakeWord.setTypeface(
+            null,
+            android.graphics.Typeface.BOLD
+        )
 
         val footer = TextView(this)
 
-        footer.text = "ATLAS AI • VOICE ASSISTANT"
-        footer.textSize = 11f
-        footer.setTextColor(android.graphics.Color.GRAY)
-        footer.gravity = Gravity.CENTER
+        footer.text =
+            "ATLAS AI • VOICE ASSISTANT"
+
+        footer.textSize =
+            11f
+
+        footer.setTextColor(
+            android.graphics.Color.GRAY
+        )
+
+        footer.gravity =
+            Gravity.CENTER
 
         layout.addView(title)
 
@@ -191,13 +300,21 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private fun setupSpeechRecognition() {
 
-        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
-            statusText.text = "ATLAS / SPEECH UNAVAILABLE"
+        if (
+            !SpeechRecognizer.isRecognitionAvailable(
+                this
+            )
+        ) {
+            statusText.text =
+                "ATLAS / SPEECH UNAVAILABLE"
+
             return
         }
 
         speechRecognizer =
-            SpeechRecognizer.createSpeechRecognizer(this)
+            SpeechRecognizer.createSpeechRecognizer(
+                this
+            )
 
         speechRecognizer.setRecognitionListener(
             object : RecognitionListener {
@@ -206,13 +323,15 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     params: Bundle?
                 ) {
                     runOnUiThread {
-                        statusText.text = "ATLAS / LISTENING"
+                        statusText.text =
+                            "ATLAS / LISTENING"
                     }
                 }
 
                 override fun onBeginningOfSpeech() {
                     runOnUiThread {
-                        statusText.text = "ATLAS / HEARING YOU"
+                        statusText.text =
+                            "ATLAS / HEARING YOU"
                     }
                 }
 
@@ -228,7 +347,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
                 override fun onEndOfSpeech() {
                     runOnUiThread {
-                        statusText.text = "ATLAS / PROCESSING"
+                        statusText.text =
+                            "ATLAS / PROCESSING"
                     }
                 }
 
@@ -244,13 +364,16 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
                     val matches =
                         results?.getStringArrayList(
-                            SpeechRecognizer.RESULTS_RECOGNITION
+                            SpeechRecognizer
+                                .RESULTS_RECOGNITION
                         )
 
                     val command =
                         matches?.firstOrNull()
 
-                    if (!command.isNullOrBlank()) {
+                    if (
+                        !command.isNullOrBlank()
+                    ) {
                         handleCommand(command)
                     } else {
                         restartListening()
@@ -277,15 +400,22 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
         if (isFinishing) return
 
-        if (!::speechRecognizer.isInitialized) return
+        if (
+            !::speechRecognizer.isInitialized
+        ) {
+            return
+        }
 
-        if (restartingListening) return
+        if (restartingListening) {
+            return
+        }
 
         restartingListening = true
 
         runOnUiThread {
 
-            statusText.text = "ATLAS / LISTENING"
+            statusText.text =
+                "ATLAS / LISTENING"
 
             try {
                 speechRecognizer.cancel()
@@ -307,7 +437,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private fun startListening() {
 
-        if (!::speechRecognizer.isInitialized) return
+        if (
+            !::speechRecognizer.isInitialized
+        ) {
+            return
+        }
 
         val intent =
             Intent(
@@ -347,19 +481,25 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         val lower =
             command.lowercase(Locale.getDefault())
 
-        if (lower.startsWith("hey atlas")) {
+        if (
+            lower.startsWith("hey atlas")
+        ) {
 
             command =
                 command.substring(9).trim()
 
-        } else if (lower.startsWith("atlas")) {
+        } else if (
+            lower.startsWith("atlas")
+        ) {
 
             command =
                 command.substring(5).trim()
         }
 
         val clean =
-            command.lowercase(Locale.getDefault())
+            command.lowercase(
+                Locale.getDefault()
+            )
 
         if (clean.isBlank()) {
 
@@ -421,9 +561,15 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
         if (
             clean.contains("today's date") ||
-            clean.contains("what is today's date") ||
-            clean.contains("what's today's date") ||
-            clean.contains("what date is it")
+            clean.contains(
+                "what is today's date"
+            ) ||
+            clean.contains(
+                "what's today's date"
+            ) ||
+            clean.contains(
+                "what date is it"
+            )
         ) {
 
             val date =
@@ -452,7 +598,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
             val level =
                 batteryManager.getIntProperty(
-                    BatteryManager.BATTERY_PROPERTY_CAPACITY
+                    BatteryManager
+                        .BATTERY_PROPERTY_CAPACITY
                 )
 
             speak(
@@ -478,7 +625,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             return
         }
 
-        if (clean == "open google") {
+        if (
+            clean == "open google"
+        ) {
 
             openWebsite(
                 "https://www.google.com"
@@ -492,7 +641,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
 
         if (
-            clean.startsWith("search google for ")
+            clean.startsWith(
+                "search google for "
+            )
         ) {
 
             val query =
@@ -505,7 +656,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             return
         }
 
-        if (clean.startsWith("google ")) {
+        if (
+            clean.startsWith("google ")
+        ) {
 
             val query =
                 command.substringAfter(
@@ -525,7 +678,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             try {
 
                 startActivity(
-                    Intent(Settings.ACTION_SETTINGS)
+                    Intent(
+                        Settings.ACTION_SETTINGS
+                    )
                 )
 
                 speak(
@@ -560,6 +715,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             return
         }
 
+        /*
+         * Everything else goes to the
+         * conversational AI brain.
+         */
         askAtlas(command)
     }
 
@@ -622,10 +781,31 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 ""
         }
 
+        /*
+         * Add the user's new message
+         * to local conversation memory.
+         */
+        conversation.add(
+            ChatMessage(
+                "user",
+                message
+            )
+        )
+
+        /*
+         * Keep only the most recent
+         * 20 messages.
+         */
+        while (
+            conversation.size > 20
+        ) {
+            conversation.removeAt(0)
+        }
+
         thread {
 
             var connection:
-                    HttpURLConnection? = null
+                HttpURLConnection? = null
 
             try {
 
@@ -649,8 +829,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     "application/json"
                 )
 
-                connection.doOutput =
-                    true
+                connection.doOutput = true
 
                 connection.connectTimeout =
                     15000
@@ -658,11 +837,48 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 connection.readTimeout =
                     30000
 
+                /*
+                 * Convert conversation history
+                 * into JSON.
+                 */
+                val historyJson =
+                    JSONArray()
+
+                synchronized(
+                    conversation
+                ) {
+
+                    for (
+                        item in conversation
+                    ) {
+
+                        historyJson.put(
+                            JSONObject().apply {
+                                put(
+                                    "role",
+                                    item.role
+                                )
+
+                                put(
+                                    "content",
+                                    item.content
+                                )
+                            }
+                        )
+                    }
+                }
+
                 val request =
                     JSONObject().apply {
+
                         put(
                             "message",
                             message
+                        )
+
+                        put(
+                            "history",
+                            historyJson
                         )
                     }.toString()
 
@@ -681,9 +897,12 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     connection.responseCode
 
                 val body =
-                    if (code in 200..299) {
+                    if (
+                        code in 200..299
+                    ) {
 
-                        connection.inputStream
+                        connection
+                            .inputStream
                             .bufferedReader()
                             .use {
                                 it.readText()
@@ -691,7 +910,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
                     } else {
 
-                        connection.errorStream
+                        connection
+                            .errorStream
                             ?.bufferedReader()
                             ?.use {
                                 it.readText()
@@ -699,7 +919,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                             ?: ""
                     }
 
-                if (code !in 200..299) {
+                if (
+                    code !in 200..299
+                ) {
 
                     val error =
                         try {
@@ -714,6 +936,22 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
                             "Server error $code"
                         }
+
+                    /*
+                     * Remove the user message
+                     * if the request failed.
+                     */
+                    synchronized(
+                        conversation
+                    ) {
+                        if (
+                            conversation.isNotEmpty()
+                        ) {
+                            conversation.removeAt(
+                                conversation.lastIndex
+                            )
+                        }
+                    }
 
                     runOnUiThread {
 
@@ -736,7 +974,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         ""
                     )
 
-                if (reply.isBlank()) {
+                if (
+                    reply.isBlank()
+                ) {
 
                     runOnUiThread {
 
@@ -750,6 +990,28 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     return@thread
                 }
 
+                /*
+                 * Save ATLAS's answer into
+                 * conversation memory.
+                 */
+                synchronized(
+                    conversation
+                ) {
+
+                    conversation.add(
+                        ChatMessage(
+                            "assistant",
+                            reply
+                        )
+                    )
+
+                    while (
+                        conversation.size > 20
+                    ) {
+                        conversation.removeAt(0)
+                    }
+                }
+
                 runOnUiThread {
 
                     responseText.text =
@@ -759,6 +1021,19 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 }
 
             } catch (e: Exception) {
+
+                synchronized(
+                    conversation
+                ) {
+
+                    if (
+                        conversation.isNotEmpty()
+                    ) {
+                        conversation.removeAt(
+                            conversation.lastIndex
+                        )
+                    }
+                }
 
                 runOnUiThread {
 
@@ -796,7 +1071,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 "ATLAS_RESPONSE"
             )
 
-        if (result == TextToSpeech.ERROR) {
+        if (
+            result == TextToSpeech.ERROR
+        ) {
 
             statusText.text =
                 "ATLAS / TTS ERROR"
@@ -807,9 +1084,12 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         status: Int
     ) {
 
-        if (status != TextToSpeech.SUCCESS) {
+        if (
+            status != TextToSpeech.SUCCESS
+        ) {
 
             ttsReady = false
+
             statusText.text =
                 "ATLAS / TTS ERROR"
 
@@ -883,15 +1163,21 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     override fun onDestroy() {
 
-        if (::speechRecognizer.isInitialized) {
+        if (
+            ::speechRecognizer.isInitialized
+        ) {
 
             speechRecognizer.cancel()
+
             speechRecognizer.destroy()
         }
 
-        if (::textToSpeech.isInitialized) {
+        if (
+            ::textToSpeech.isInitialized
+        ) {
 
             textToSpeech.stop()
+
             textToSpeech.shutdown()
         }
 
