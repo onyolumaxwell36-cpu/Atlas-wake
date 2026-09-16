@@ -4,6 +4,8 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Color
+import android.graphics.Typeface
 import android.net.Uri
 import android.os.BatteryManager
 import android.os.Bundle
@@ -14,8 +16,10 @@ import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.view.Gravity
+import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.graphics.drawable.GradientDrawable
 import androidx.activity.ComponentActivity
 import androidx.core.app.ActivityCompat
 import org.json.JSONArray
@@ -38,11 +42,6 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private var ttsReady = false
     private var restartingListening = false
 
-    /*
-     * ATLAS conversation memory.
-     *
-     * We keep the most recent 20 messages.
-     */
     private val conversation = mutableListOf<ChatMessage>()
 
     private val atlasApiUrl =
@@ -63,39 +62,25 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         textToSpeech.setOnUtteranceProgressListener(
             object : UtteranceProgressListener() {
 
-                override fun onStart(
-                    utteranceId: String?
-                ) {
+                override fun onStart(utteranceId: String?) {
                     runOnUiThread {
-                        statusText.text =
-                            "ATLAS / SPEAKING"
-
+                        statusText.text = "ATLAS  •  SPEAKING"
                         orbView.setSpeaking(true)
                     }
                 }
 
-                override fun onDone(
-                    utteranceId: String?
-                ) {
+                override fun onDone(utteranceId: String?) {
                     runOnUiThread {
                         orbView.setSpeaking(false)
-
-                        statusText.text =
-                            "ATLAS / LISTENING"
-
+                        statusText.text = "ATLAS  •  LISTENING"
                         restartListening()
                     }
                 }
 
-                override fun onError(
-                    utteranceId: String?
-                ) {
+                override fun onError(utteranceId: String?) {
                     runOnUiThread {
                         orbView.setSpeaking(false)
-
-                        statusText.text =
-                            "ATLAS / TTS ERROR"
-
+                        statusText.text = "ATLAS  •  TTS ERROR"
                         restartListening()
                     }
                 }
@@ -109,9 +94,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         ) {
             ActivityCompat.requestPermissions(
                 this,
-                arrayOf(
-                    Manifest.permission.RECORD_AUDIO
-                ),
+                arrayOf(Manifest.permission.RECORD_AUDIO),
                 100
             )
         } else {
@@ -119,184 +102,308 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
     }
 
+    // ============================================================
+    // HOLOGRAPHIC ATLAS INTERFACE
+    // ============================================================
+
     private fun createInterface() {
 
-        val layout = LinearLayout(this)
+        val root = LinearLayout(this)
 
-        layout.orientation =
-            LinearLayout.VERTICAL
+        root.orientation = LinearLayout.VERTICAL
+        root.gravity = Gravity.CENTER_HORIZONTAL
 
-        layout.gravity =
-            Gravity.CENTER
-
-        layout.setBackgroundColor(
-            android.graphics.Color.BLACK
+        root.setPadding(
+            18,
+            28,
+            18,
+            18
         )
 
-        layout.setPadding(
-            20,
-            20,
-            20,
-            20
+        val background = GradientDrawable(
+            GradientDrawable.Orientation.TL_BR,
+            intArrayOf(
+                Color.rgb(2, 7, 18),
+                Color.rgb(3, 18, 38),
+                Color.rgb(1, 5, 15)
+            )
         )
 
-        val title = TextView(this)
+        root.background = background
 
-        title.text = "ATLAS"
+        // --------------------------------------------------------
+        // TOP HEADER
+        // --------------------------------------------------------
 
-        title.textSize = 32f
+        val header = LinearLayout(this)
 
-        title.setTextColor(
-            android.graphics.Color.WHITE
+        header.orientation = LinearLayout.HORIZONTAL
+        header.gravity = Gravity.CENTER_VERTICAL
+
+        val brand = TextView(this)
+
+        brand.text = "ATLAS"
+        brand.textSize = 27f
+        brand.setTextColor(
+            Color.rgb(80, 220, 255)
         )
 
-        title.gravity =
-            Gravity.CENTER
-
-        title.setTypeface(
-            null,
-            android.graphics.Typeface.BOLD
+        brand.setTypeface(
+            Typeface.create(
+                "sans-serif",
+                Typeface.BOLD
+            )
         )
 
-        val subtitle = TextView(this)
+        brand.letterSpacing = 0.20f
 
-        subtitle.text =
-            "ARTIFICIAL INTELLIGENCE"
+        val online = TextView(this)
 
-        subtitle.textSize = 12f
-
-        subtitle.setTextColor(
-            android.graphics.Color.GRAY
+        online.text = "  ● ONLINE"
+        online.textSize = 10f
+        online.setTextColor(
+            Color.rgb(60, 255, 190)
         )
 
-        subtitle.gravity =
-            Gravity.CENTER
+        online.gravity = Gravity.CENTER_VERTICAL
 
-        orbView =
-            AtlasOrbView(this)
+        header.addView(
+            brand,
+            LinearLayout.LayoutParams(
+                0,
+                55,
+                1f
+            )
+        )
 
-        statusText =
-            TextView(this)
+        header.addView(
+            online,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                55
+            )
+        )
+
+        root.addView(header)
+
+        // --------------------------------------------------------
+        // TOP LINE
+        // --------------------------------------------------------
+
+        val line = View(this)
+
+        line.setBackgroundColor(
+            Color.rgb(20, 100, 145)
+        )
+
+        root.addView(
+            line,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                1
+            )
+        )
+
+        // --------------------------------------------------------
+        // HOLOGRAM LABEL
+        // --------------------------------------------------------
+
+        val hologramLabel = TextView(this)
+
+        hologramLabel.text =
+            "C T P   H O L O G R A P H I C   A V A T A R"
+
+        hologramLabel.textSize = 9f
+
+        hologramLabel.setTextColor(
+            Color.rgb(40, 150, 200)
+        )
+
+        hologramLabel.gravity = Gravity.CENTER
+
+        hologramLabel.letterSpacing = 0.08f
+
+        val labelParams =
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                38
+            )
+
+        labelParams.topMargin = 6
+
+        root.addView(
+            hologramLabel,
+            labelParams
+        )
+
+        // --------------------------------------------------------
+        // HOLOGRAPHIC AVATAR
+        // --------------------------------------------------------
+
+        orbView = AtlasOrbView(this)
+
+        val orbParams =
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                420
+            )
+
+        orbParams.gravity = Gravity.CENTER
+
+        root.addView(
+            orbView,
+            orbParams
+        )
+
+        // --------------------------------------------------------
+        // STATUS PANEL
+        // --------------------------------------------------------
+
+        statusText = TextView(this)
 
         statusText.text =
-            "ATLAS / STARTING..."
+            "ATLAS  •  LISTENING"
 
-        statusText.textSize =
-            16f
+        statusText.textSize = 13f
 
         statusText.setTextColor(
-            android.graphics.Color.WHITE
+            Color.rgb(80, 220, 255)
         )
 
-        statusText.gravity =
-            Gravity.CENTER
+        statusText.gravity = Gravity.CENTER
 
         statusText.setTypeface(
             null,
-            android.graphics.Typeface.BOLD
+            Typeface.BOLD
         )
 
-        responseText =
-            TextView(this)
+        statusText.letterSpacing = 0.10f
 
-        responseText.text = ""
+        val statusBackground =
+            GradientDrawable()
 
-        responseText.textSize =
-            18f
+        statusBackground.setColor(
+            Color.rgb(4, 30, 52)
+        )
+
+        statusBackground.setStroke(
+            1,
+            Color.rgb(20, 120, 170)
+        )
+
+        statusBackground.cornerRadius = 40f
+
+        statusText.background =
+            statusBackground
+
+        val statusParams =
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                48
+            )
+
+        statusParams.topMargin = 8
+
+        root.addView(
+            statusText,
+            statusParams
+        )
+
+        // --------------------------------------------------------
+        // RESPONSE PANEL
+        // --------------------------------------------------------
+
+        responseText = TextView(this)
+
+        responseText.text =
+            "Say \"Hey Atlas\" to begin."
+
+        responseText.textSize = 15f
 
         responseText.setTextColor(
-            android.graphics.Color.WHITE
+            Color.rgb(210, 240, 255)
         )
 
         responseText.gravity =
             Gravity.CENTER
 
         responseText.setPadding(
-            20,
-            20,
-            20,
-            20
+            18,
+            12,
+            18,
+            12
         )
+
+        responseText.maxLines = 4
+
+        val responseBackground =
+            GradientDrawable()
+
+        responseBackground.setColor(
+            Color.rgb(2, 14, 28)
+        )
+
+        responseBackground.setStroke(
+            1,
+            Color.rgb(12, 70, 105)
+        )
+
+        responseBackground.cornerRadius = 24f
+
+        responseText.background =
+            responseBackground
+
+        val responseParams =
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                105
+            )
+
+        responseParams.topMargin = 10
+
+        root.addView(
+            responseText,
+            responseParams
+        )
+
+        // --------------------------------------------------------
+        // WAKE WORD
+        // --------------------------------------------------------
 
         val wakeWord = TextView(this)
 
         wakeWord.text =
-            "HEY ATLAS"
+            "MIC  •  HEY ATLAS  •  VOICE CONTROL"
 
-        wakeWord.textSize =
-            15f
+        wakeWord.textSize = 9f
 
         wakeWord.setTextColor(
-            android.graphics.Color.rgb(
-                255,
-                120,
-                20
-            )
+            Color.rgb(50, 130, 170)
         )
 
-        wakeWord.gravity =
-            Gravity.CENTER
+        wakeWord.gravity = Gravity.CENTER
 
-        wakeWord.setTypeface(
-            null,
-            android.graphics.Typeface.BOLD
-        )
+        wakeWord.letterSpacing = 0.08f
 
-        val footer = TextView(this)
-
-        footer.text =
-            "ATLAS AI • VOICE ASSISTANT"
-
-        footer.textSize =
-            11f
-
-        footer.setTextColor(
-            android.graphics.Color.GRAY
-        )
-
-        footer.gravity =
-            Gravity.CENTER
-
-        layout.addView(title)
-
-        layout.addView(
-            subtitle,
+        val wakeParams =
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                40
+                35
             )
+
+        wakeParams.topMargin = 5
+
+        root.addView(
+            wakeWord,
+            wakeParams
         )
 
-        layout.addView(
-            orbView,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                360
-            )
-        )
-
-        layout.addView(statusText)
-
-        layout.addView(
-            responseText,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                130
-            )
-        )
-
-        layout.addView(wakeWord)
-
-        layout.addView(
-            footer,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                45
-            )
-        )
-
-        setContentView(layout)
+        setContentView(root)
     }
+
+    // ============================================================
+    // SPEECH RECOGNITION
+    // ============================================================
 
     private fun setupSpeechRecognition() {
 
@@ -306,8 +413,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             )
         ) {
             statusText.text =
-                "ATLAS / SPEECH UNAVAILABLE"
-
+                "ATLAS  •  SPEECH UNAVAILABLE"
             return
         }
 
@@ -324,14 +430,14 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 ) {
                     runOnUiThread {
                         statusText.text =
-                            "ATLAS / LISTENING"
+                            "ATLAS  •  LISTENING"
                     }
                 }
 
                 override fun onBeginningOfSpeech() {
                     runOnUiThread {
                         statusText.text =
-                            "ATLAS / HEARING YOU"
+                            "ATLAS  •  HEARING YOU"
                     }
                 }
 
@@ -348,7 +454,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 override fun onEndOfSpeech() {
                     runOnUiThread {
                         statusText.text =
-                            "ATLAS / PROCESSING"
+                            "ATLAS  •  THINKING"
                     }
                 }
 
@@ -415,7 +521,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         runOnUiThread {
 
             statusText.text =
-                "ATLAS / LISTENING"
+                "ATLAS  •  LISTENING"
 
             try {
                 speechRecognizer.cancel()
@@ -471,6 +577,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         speechRecognizer.startListening(intent)
     }
 
+    // ============================================================
+    // COMMAND HANDLING
+    // ============================================================
+
     private fun handleCommand(
         originalCommand: String
     ) {
@@ -479,7 +589,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             originalCommand.trim()
 
         val lower =
-            command.lowercase(Locale.getDefault())
+            command.lowercase(
+                Locale.getDefault()
+            )
 
         if (
             lower.startsWith("hey atlas")
@@ -561,15 +673,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
         if (
             clean.contains("today's date") ||
-            clean.contains(
-                "what is today's date"
-            ) ||
-            clean.contains(
-                "what's today's date"
-            ) ||
-            clean.contains(
-                "what date is it"
-            )
+            clean.contains("what is today's date") ||
+            clean.contains("what's today's date") ||
+            clean.contains("what date is it")
         ) {
 
             val date =
@@ -598,8 +704,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
             val level =
                 batteryManager.getIntProperty(
-                    BatteryManager
-                        .BATTERY_PROPERTY_CAPACITY
+                    BatteryManager.BATTERY_PROPERTY_CAPACITY
                 )
 
             speak(
@@ -708,19 +813,19 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             orbView.setSpeaking(false)
 
             statusText.text =
-                "ATLAS / LISTENING"
+                "ATLAS  •  LISTENING"
 
             restartListening()
 
             return
         }
 
-        /*
-         * Everything else goes to the
-         * conversational AI brain.
-         */
         askAtlas(command)
     }
+
+    // ============================================================
+    // GOOGLE
+    // ============================================================
 
     private fun searchGoogle(
         query: String
@@ -768,6 +873,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
     }
 
+    // ============================================================
+    // AI CONNECTION
+    // ============================================================
+
     private fun askAtlas(
         message: String
     ) {
@@ -775,16 +884,12 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         runOnUiThread {
 
             statusText.text =
-                "ATLAS / THINKING"
+                "ATLAS  •  THINKING"
 
             responseText.text =
-                ""
+                "Processing..."
         }
 
-        /*
-         * Add the user's new message
-         * to local conversation memory.
-         */
         conversation.add(
             ChatMessage(
                 "user",
@@ -792,10 +897,6 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             )
         )
 
-        /*
-         * Keep only the most recent
-         * 20 messages.
-         */
         while (
             conversation.size > 20
         ) {
@@ -805,7 +906,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         thread {
 
             var connection:
-                HttpURLConnection? = null
+                    HttpURLConnection? = null
 
             try {
 
@@ -837,10 +938,6 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 connection.readTimeout =
                     30000
 
-                /*
-                 * Convert conversation history
-                 * into JSON.
-                 */
                 val historyJson =
                     JSONArray()
 
@@ -854,6 +951,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
                         historyJson.put(
                             JSONObject().apply {
+
                                 put(
                                     "role",
                                     item.role
@@ -880,9 +978,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                             "history",
                             historyJson
                         )
+
                     }.toString()
 
-                connection.outputStream.use { output ->
+                connection.outputStream.use {
+                    output ->
 
                     output.write(
                         request.toByteArray(
@@ -937,16 +1037,14 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                             "Server error $code"
                         }
 
-                    /*
-                     * Remove the user message
-                     * if the request failed.
-                     */
                     synchronized(
                         conversation
                     ) {
+
                         if (
                             conversation.isNotEmpty()
                         ) {
+
                             conversation.removeAt(
                                 conversation.lastIndex
                             )
@@ -956,7 +1054,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     runOnUiThread {
 
                         statusText.text =
-                            "ATLAS / SERVER ERROR"
+                            "ATLAS  •  SERVER ERROR"
 
                         responseText.text =
                             error
@@ -974,14 +1072,12 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         ""
                     )
 
-                if (
-                    reply.isBlank()
-                ) {
+                if (reply.isBlank()) {
 
                     runOnUiThread {
 
                         statusText.text =
-                            "ATLAS / NO RESPONSE"
+                            "ATLAS  •  NO RESPONSE"
 
                         responseText.text =
                             "The AI returned no answer."
@@ -990,10 +1086,6 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     return@thread
                 }
 
-                /*
-                 * Save ATLAS's answer into
-                 * conversation memory.
-                 */
                 synchronized(
                     conversation
                 ) {
@@ -1008,6 +1100,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     while (
                         conversation.size > 20
                     ) {
+
                         conversation.removeAt(0)
                     }
                 }
@@ -1029,6 +1122,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     if (
                         conversation.isNotEmpty()
                     ) {
+
                         conversation.removeAt(
                             conversation.lastIndex
                         )
@@ -1038,7 +1132,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 runOnUiThread {
 
                     statusText.text =
-                        "ATLAS / CONNECTION ERROR"
+                        "ATLAS  •  CONNECTION ERROR"
 
                     responseText.text =
                         e.message
@@ -1051,6 +1145,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             }
         }
     }
+
+    // ============================================================
+    // TEXT TO SPEECH
+    // ============================================================
 
     private fun speak(
         message: String
@@ -1076,7 +1174,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         ) {
 
             statusText.text =
-                "ATLAS / TTS ERROR"
+                "ATLAS  •  TTS ERROR"
         }
     }
 
@@ -1091,7 +1189,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             ttsReady = false
 
             statusText.text =
-                "ATLAS / TTS ERROR"
+                "ATLAS  •  TTS ERROR"
 
             return
         }
@@ -1118,7 +1216,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         if (ttsReady) {
 
             statusText.text =
-                "ATLAS / ONLINE"
+                "ATLAS  •  ONLINE"
 
             speak(
                 "ATLAS online."
@@ -1127,9 +1225,13 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         } else {
 
             statusText.text =
-                "ATLAS / TTS LANGUAGE ERROR"
+                "ATLAS  •  TTS LANGUAGE ERROR"
         }
     }
+
+    // ============================================================
+    // MICROPHONE PERMISSION
+    // ============================================================
 
     override fun onRequestPermissionsResult(
         requestCode: Int,
@@ -1156,10 +1258,14 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             } else {
 
                 statusText.text =
-                    "ATLAS / MICROPHONE DENIED"
+                    "ATLAS  •  MICROPHONE DENIED"
             }
         }
     }
+
+    // ============================================================
+    // CLEANUP
+    // ============================================================
 
     override fun onDestroy() {
 
