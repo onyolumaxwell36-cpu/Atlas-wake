@@ -79,13 +79,16 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         textToSpeech.setOnUtteranceProgressListener(
             object : UtteranceProgressListener() {
 
-                override fun onStart(utteranceId: String?) {
-                    runOnUiThread {
-                        isAtlasSpeaking = true
-                        statusText.text = "ATLAS • SPEAKING"
-                        orbView.setSpeaking(true)
-                    }
-                }
+                 override fun onStart(utteranceId: String?) {
+    runOnUiThread {
+        isAtlasSpeaking = true
+        statusText.text = "ATLAS • SPEAKING"
+        orbView.setSpeaking(true)
+
+        // Start listening for Stop while ATLAS speaks.
+        startStopCommandListener()
+    }
+}
 
                 override fun onDone(utteranceId: String?) {
                     runOnUiThread {
