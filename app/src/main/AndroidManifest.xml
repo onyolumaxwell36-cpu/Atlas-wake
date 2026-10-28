@@ -1,3 +1,4 @@
+
 <?xml version="1.0" encoding="utf-8"?>
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -26,6 +27,11 @@
             </intent-filter>
 
         </activity>
+
+        <service
+            android:name=".AtlasListeningService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
 
     </application>
 
