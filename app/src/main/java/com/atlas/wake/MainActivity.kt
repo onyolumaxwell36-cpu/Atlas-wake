@@ -473,24 +473,23 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun isStopCommand(heard: String): Boolean {
-        val normalized = heard
-            .replace(Regex("[^a-z ]"), " ")
-            .replace(Regex("\\s+"), " ")
-            .trim()
+    val normalized = heard
+        .lowercase(Locale.US)
+        .replace(Regex("[^a-z ]"), " ")
+        .replace(Regex("\\s+"), " ")
+        .trim()
 
-        return normalized in setOf(
-            "stop",
-            "stop talking",
-            "atlas stop",
-            "hey atlas stop",
-            "be quiet",
-            "atlas be quiet",
-            "hey atlas be quiet",
-            "quiet",
-            "stop atlas",
-            "stop speaking",
-            "atlas stop talking"
-        )
+    return normalized == "stop" ||
+        normalized == "stop talking" ||
+        normalized == "atlas stop" ||
+        normalized == "hey atlas stop" ||
+        normalized == "atlas stop talking" ||
+        normalized == "hey atlas stop talking" ||
+        normalized == "stop atlas" ||
+        normalized == "stop speaking" ||
+        normalized == "be quiet" ||
+        normalized == "atlas be quiet" ||
+        normalized == "hey atlas be quiet"
     }
 
     private fun scheduleStopListenerRestart() {
