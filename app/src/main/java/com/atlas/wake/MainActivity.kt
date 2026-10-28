@@ -837,34 +837,42 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     // ---------------------------------------------------------
 
     private fun speak(message: String) {
-        runOnUiThread {
-            responseText.text = message
+    runOnUiThread {
+        responseText.text = message
 
-            if (!ttsReady) {
-                statusText.text = "ATLAS • VOICE NOT READY"
-                return@runOnUiThread
-            }
-
-            // Stop any previous speech before starting another reply.
-            isAtlasSpeaking = false
-            mainHandler.removeCallbacks(restartStopListener)
-            stopListenerRestartPending = false
-            destroyStopCommandListener()
-
-            val result = textToSpeech.speak(
-                message,
-                TextToSpeech.QUEUE_FLUSH,
-                null,
-                "ATLAS_RESPONSE"
-            )
-
-            if (result == TextToSpeech.ERROR) {
-                statusText.text = "ATLAS • TTS ERROR"
-                orbView.setSpeaking(false)
-            } else {
-                statusText.text = "ATLAS • PREPARING VOICE"
-            }
+        if (!ttsReady) {
+            statusText.text = "ATLAS • VOICE NOT READY"
+            return@runOnUiThread
         }
+
+        // Stop the main recognizer before speaking.
+        try {
+            speechRecognizer?.cancel()
+        } catch (_: Exception) {}
+
+        mainHandler.removeCallbacks(restartStopListener)
+        stopListenerRestartPending = false
+        destroyStopCommandListener()
+
+        isAtlasSpeaking = false
+        orbView.setSpeaking(false)
+
+        val result = textToSpeech.speak(
+            message,
+            TextToSpeech.QUEUE_FLUSH,
+            null,
+            "ATLAS_RESPONSE"
+        )
+
+        if (result == TextToSpeech.ERROR) {
+            statusText.text = "ATLAS • TTS ERROR"
+            isAtlasSpeaking = false
+            orbView.setSpeaking(false)
+            restartListening()
+        } else {
+            statusText.text = "ATLAS • PREPARING VOICE"
+        }
+    }
     }
 
     override fun onInit(status: Int) {
