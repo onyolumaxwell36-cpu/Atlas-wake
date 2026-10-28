@@ -1,6 +1,5 @@
-
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
-const GROQ_MODEL = "llama-3.3-70b-versatile";
+const GROQ_MODEL = "openai/gpt-oss-120b";
 
 function cleanHistory(history) {
   if (!Array.isArray(history)) return [];
@@ -146,13 +145,16 @@ export default async function handler(req, res) {
 
     if (!apiKey) {
       console.error("GROQ_API_KEY is not configured.");
+
       return res.status(500).json({
-        reply: "My AI connection is not configured yet. Please check my server settings.",
+        reply:
+          "My AI connection is not configured yet. Please check my server settings.",
         weatherUsed: false,
       });
     }
 
     const history = cleanHistory(body.history);
+
     let weatherContext = "";
     let weatherUsed = false;
 
@@ -164,6 +166,7 @@ export default async function handler(req, res) {
 
         if (weather) {
           weatherUsed = true;
+
           weatherContext = `
 Current weather information:
 Location: ${weather.location}
@@ -176,7 +179,7 @@ Wind speed: ${weather.windSpeed} km/h
 Local observation time: ${weather.time}
 
 Use these values when answering the user's weather question.
-Do not claim these values are a forecast; they describe current conditions.
+These describe current conditions, not a forecast.
 `;
         } else {
           weatherContext =
@@ -195,7 +198,7 @@ Do not claim these values are a forecast; they describe current conditions.
 
 Be helpful, accurate, friendly, and conversational.
 Keep answers clear and reasonably concise because your responses may be spoken aloud.
-Use the conversation history to understand follow-up questions.
+Use conversation history to understand follow-up questions.
 Never claim to have opened an app, changed a phone setting, sent a message, or performed another device action unless the application confirms it.
 You do not automatically have control over the user's phone or apps.
 If you do not know something, say so rather than inventing facts.
@@ -258,7 +261,8 @@ ${weatherContext}`,
     console.error("ATLAS server error:", error.message);
 
     return res.status(500).json({
-      reply: "Something went wrong while I was processing your request. Please try again.",
+      reply:
+        "Something went wrong while I was processing your request. Please try again.",
       weatherUsed: false,
     });
   }
