@@ -897,25 +897,25 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     // ---------------------------------------------------------
 
     override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(
-            requestCode,
-            permissions,
-            grantResults
-        )
+    requestCode: Int,
+    permissions: Array<String>,
+    grantResults: IntArray
+) {
+    super.onRequestPermissionsResult(
+        requestCode,
+        permissions,
+        grantResults
+    )
 
-        if (requestCode == 100 &&
-            grantResults.isNotEmpty() &&
-            grantResults[0] == PackageManager.PERMISSION_GRANTED
-        ) {
-            setupSpeechRecognition()
-        } else if (requestCode == 100) {
-            statusText.text = "ATLAS • MICROPHONE PERMISSION REQUIRED"
-        }
+    if (requestCode == 100 &&
+        grantResults.isNotEmpty() &&
+        grantResults[0] == PackageManager.PERMISSION_GRANTED
+    ) {
+        setupSpeechRecognition()
+    } else if (requestCode == 100) {
+        statusText.text = "ATLAS • MICROPHONE PERMISSION REQUIRED"
     }
+}
 
     override fun onDestroy() {
         isAtlasSpeaking = false
