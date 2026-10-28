@@ -18,7 +18,6 @@ class AtlasOrbView(context: Context) : View(context) {
     private val flickerPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     private var hologram: Bitmap? = null
-
     private var speaking = false
     private var animationTime = 0.0
     private var animationScheduled = false
@@ -80,22 +79,23 @@ class AtlasOrbView(context: Context) : View(context) {
         }
 
         /*
-         * FIT THE ENTIRE IMAGE INSIDE THE VIEW.
-         * Preserve the image proportions and center it.
+         * FULL-VIEW HOLOGRAM
+         * Fill the entire view without stretching the image.
+         * Center-crop any excess outside the view.
          */
-        val availableWidth = width.toFloat()
-        val availableHeight = height.toFloat()
+        val viewWidth = width.toFloat()
+        val viewHeight = height.toFloat()
 
-        val scale = minOf(
-            availableWidth / bitmap.width.toFloat(),
-            availableHeight / bitmap.height.toFloat()
+        val scale = maxOf(
+            viewWidth / bitmap.width.toFloat(),
+            viewHeight / bitmap.height.toFloat()
         )
 
         val imageWidth = bitmap.width * scale
         val imageHeight = bitmap.height * scale
 
-        val left = (availableWidth - imageWidth) / 2f
-        val top = (availableHeight - imageHeight) / 2f
+        val left = (viewWidth - imageWidth) / 2f
+        val top = (viewHeight - imageHeight) / 2f
         val right = left + imageWidth
         val bottom = top + imageHeight
 
@@ -125,23 +125,17 @@ class AtlasOrbView(context: Context) : View(context) {
         )
 
         glowRect.set(
-            left + 15f,
-            top + 15f,
-            right - 15f,
-            bottom - 15f
+            0f,
+            0f,
+            viewWidth,
+            viewHeight
         )
 
-        canvas.drawRoundRect(
-            glowRect,
-            24f,
-            24f,
-            glowPaint
-        )
-
+        canvas.drawRect(glowRect, glowPaint)
         glowPaint.clearShadowLayer()
 
         /*
-         * HOLOGRAPHIC IMAGE
+         * DRAW IMAGE ACROSS THE ENTIRE VIEW
          */
         imagePaint.alpha = if (speaking) {
             (
@@ -151,6 +145,9 @@ class AtlasOrbView(context: Context) : View(context) {
             225
         }
 
+        canvas.save()
+        canvas.clipRect(0f, 0f, viewWidth, viewHeight)
+
         canvas.drawBitmap(
             bitmap,
             null,
@@ -159,7 +156,7 @@ class AtlasOrbView(context: Context) : View(context) {
         )
 
         /*
-         * SCAN-LINE EFFECT
+         * MOVING SCAN LINE
          */
         val scanPosition = if (speaking) {
             ((sin(animationTime * 0.7) + 1.0) / 2.0).toFloat()
@@ -167,7 +164,7 @@ class AtlasOrbView(context: Context) : View(context) {
             0.5f
         }
 
-        val scanY = top + imageHeight * scanPosition
+        val scanY = viewHeight * scanPosition
 
         scanPaint.color = Color.argb(
             if (speaking) 110 else 45,
@@ -179,22 +176,27 @@ class AtlasOrbView(context: Context) : View(context) {
         scanPaint.strokeWidth = if (speaking) 3f else 1f
 
         canvas.drawLine(
-            left,
+            0f,
             scanY,
-            right,
+            viewWidth,
             scanY,
             scanPaint
         )
 
         /*
-         * SUBTLE HOLOGRAM FLICKER
+         * SPEAKING FLICKER
          */
         if (speaking) {
             canvas.drawRect(
-                imageRect,
+                0f,
+                0f,
+                viewWidth,
+                viewHeight,
                 flickerPaint
             )
         }
+
+        canvas.restore()
     }
 
     override fun onDetachedFromWindow() {
