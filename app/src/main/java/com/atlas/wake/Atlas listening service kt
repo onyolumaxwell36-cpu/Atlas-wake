@@ -22,25 +22,10 @@ class AtlasListeningService : Service() {
     private var detector: OpenWakeWord? = null
     private var wakeDetected = false
 
-private fun handleWakeDetected() {
-    runOnUiThread {
-        statusText.text = "ATLAS • WAKE PHRASE DETECTED"
-        responseText.text = "Yes, I'm listening."
-        setupSpeechRecognition()
-    }
-}
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
     }
- override fun onNewIntent(intent: Intent) {
-    super.onNewIntent(intent)
-    setIntent(intent)
-
-    if (intent.action == "com.atlas.wake.WAKE_DETECTED") {
-        handleWakeDetected()
-    }
-}
 
     override fun onStartCommand(
         intent: Intent?,
@@ -63,6 +48,8 @@ private fun handleWakeDetected() {
     private fun startWakeWordDetection() {
         if (detector != null) return
 
+        wakeDetected = false
+
         try {
             detector = OpenWakeWord.Builder(this)
                 .setModel(OpenWakeWord.BuiltInModel.HEY_JARVIS)
@@ -72,6 +59,7 @@ private fun handleWakeDetected() {
             detector?.start { score ->
                 if (score >= 0.5f && !wakeDetected) {
                     wakeDetected = true
+
                     Log.d(TAG, "Wake phrase detected.")
 
                     detector?.stop()
@@ -92,6 +80,7 @@ private fun handleWakeDetected() {
             }
 
             Log.d(TAG, "Wake-word detector started.")
+
         } catch (e: Exception) {
             Log.e(TAG, "Could not start wake-word detector.", e)
         }
