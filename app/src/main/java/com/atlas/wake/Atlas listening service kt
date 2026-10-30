@@ -33,6 +33,14 @@ private fun handleWakeDetected() {
         super.onCreate()
         createNotificationChannel()
     }
+ override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+
+    if (intent.action == "com.atlas.wake.WAKE_DETECTED") {
+        handleWakeDetected()
+    }
+}
 
     override fun onStartCommand(
         intent: Intent?,
