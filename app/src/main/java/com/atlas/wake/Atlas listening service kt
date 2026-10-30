@@ -1,3 +1,4 @@
+
 package com.atlas.wake
 
 import android.app.Notification
@@ -19,7 +20,15 @@ class AtlasListeningService : Service() {
     }
 
     private var detector: OpenWakeWord? = null
+    private var wakeDetected = false
 
+private fun handleWakeDetected() {
+    runOnUiThread {
+        statusText.text = "ATLAS • WAKE PHRASE DETECTED"
+        responseText.text = "Yes, I'm listening."
+        setupSpeechRecognition()
+    }
+}
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
@@ -32,13 +41,12 @@ class AtlasListeningService : Service() {
     ): Int {
         val notification = Notification.Builder(this, CHANNEL_ID)
             .setContentTitle("ATLAS is ready")
-            .setContentText("Background wake-word detection is starting.")
+            .setContentText("Waiting for the wake phrase.")
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
             .setOngoing(true)
             .build()
 
         startForeground(NOTIFICATION_ID, notification)
-
         startWakeWordDetection()
 
         return START_STICKY
@@ -54,7 +62,25 @@ class AtlasListeningService : Service() {
                 .build()
 
             detector?.start { score ->
-                Log.d(TAG, "Wake-word detection score: $score")
+                if (score >= 0.5f && !wakeDetected) {
+                    wakeDetected = true
+                    Log.d(TAG, "Wake phrase detected.")
+
+                    detector?.stop()
+                    detector?.release()
+                    detector = null
+
+                    val launchIntent =
+                        Intent(this, MainActivity::class.java).apply {
+                            action = "com.atlas.wake.WAKE_DETECTED"
+                            addFlags(
+                                Intent.FLAG_ACTIVITY_NEW_TASK or
+                                Intent.FLAG_ACTIVITY_SINGLE_TOP
+                            )
+                        }
+
+                    startActivity(launchIntent)
+                }
             }
 
             Log.d(TAG, "Wake-word detector started.")
@@ -71,10 +97,8 @@ class AtlasListeningService : Service() {
                 NotificationManager.IMPORTANCE_LOW
             )
 
-            val manager =
-                getSystemService(NotificationManager::class.java)
-
-            manager.createNotificationChannel(channel)
+            getSystemService(NotificationManager::class.java)
+                .createNotificationChannel(channel)
         }
     }
 
